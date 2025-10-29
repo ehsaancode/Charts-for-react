@@ -39,7 +39,7 @@ const parseSize = (size) => {
   const num = parseFloat(match[1]);
   const unit = match[2];
   if (isNaN(num)) return 0;
-  // % and vw would need viewport info which we don't have here
+  // % and vw need viewport info.
   return num;
 };
 
@@ -66,6 +66,8 @@ export default function PieChart({
 
   legendPosition = "right", //set position to left, right, top, bottom
   showLegend = true, //hide legend
+
+  alignment = "center", // left, center, right, stretch, baseline, auto
 
   
   //control label (on chart), color and font for this graph except tooltip.
@@ -120,9 +122,9 @@ export default function PieChart({
   borderRadiusAll = 0, //set radius for all the corners together
   //change each corner of the container
   borderRadiusTopLeft = 50,
-  borderRadiusTopRight = 0,
+  borderRadiusTopRight = 90,
   borderRadiusBottomRight = 90,
-  borderRadiusBottomLeft = 0,
+  borderRadiusBottomLeft = 50,
 
   //======Box Shadow props for overall chart container
   boxShadowColor = "blue",
@@ -308,7 +310,24 @@ export default function PieChart({
 
   const isVerticalLayout = showLegend && (legendPosition === 'top' || legendPosition === 'bottom');
   const isLegendFirst = showLegend && (legendPosition === 'top' || legendPosition === 'left');
-  const containerClass = `mt-20 flex ${isVerticalLayout ? 'flex-col items-center gap-8' : 'items-center justify-center gap-12'}`;
+
+  const getJustifyClass = (align) => {
+    switch (align) {
+      case 'left': return 'justify-start';
+      case 'center': return 'justify-center';
+      case 'right': return 'justify-end';
+      case 'stretch': return 'justify-between';
+      case 'baseline': return 'justify-start';
+      case 'auto': return 'justify-center';
+      default: return 'justify-center';
+    }
+  };
+
+  const outerJustifyClass = getJustifyClass(alignment);
+  const outerItemsClass = alignment === 'baseline' ? 'items-baseline' : 'items-center';
+  const containerClass = `mt-20 flex ${outerItemsClass} ${outerJustifyClass}`;
+
+  const innerFlexClass = `flex ${isVerticalLayout ? 'flex-col items-center gap-8' : 'items-center gap-12'}`;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -349,7 +368,7 @@ export default function PieChart({
   const effectiveTooltipTextColor = tooltipTextColor || "white";
   const effectiveTooltipBgColor = tooltipBgColor || "#1874da";
 
-  const containerBorderStyle = {
+  const borderedContainerStyle = {
     borderTopWidth: `${borderTop}px`,
     borderRightWidth: `${borderRight}px`,
     borderBottomWidth: `${borderBottom}px`,
@@ -361,6 +380,7 @@ export default function PieChart({
     borderBottomRightRadius: `${borderRadiusBottomRight || borderRadiusAll || 0}px`,
     borderBottomLeftRadius: `${borderRadiusBottomLeft || borderRadiusAll || 0}px`,
     boxShadow: `${boxShadowOffsetX}px ${boxShadowOffsetY}px ${boxShadowBlurRadius}px ${boxShadowSpreadRadius}px ${boxShadowColor}`,
+    overflow: 'hidden',
   };
 
   return (
@@ -368,174 +388,175 @@ export default function PieChart({
       <div 
         className={containerClass} 
         ref={containerRef}
-        style={containerBorderStyle}
       >
-        {isLegendFirst && <Legend />}
-        <svg 
-          width={numericalWidth} 
-          height={numericalHeight} 
-          style={{ 
-            minWidth, 
-            maxWidth, 
-            minHeight, 
-            maxHeight,
-            width: typeof width === 'string' ? width : `${width}px`,
-            height: typeof height === 'string' ? height : `${height}px`
-          }} 
-          className="bg-white"
-        >
-          <defs>
-            <filter id="tooltipShadow" x="-40%" y="-40%" width="180%" height="180%">
-              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity="0.4" />
-            </filter>
-          </defs>
-          
-          {displaySlices.map((slice, i) => {
-            const path = getPath(slice.startAngle, slice.endAngle, radius, innerRadius);
-            const midRad = (slice.midAngle - 90) * (Math.PI / 180);
-            const popDistance = hoveredPoint?.label === slice.label ? 18 : 0;
-            const dx = Math.cos(midRad) * popDistance;
-            const dy = Math.sin(midRad) * popDistance;
-            const originalAngle = fullSlices[i].angle;
-            const valueTextX = centerX + Math.cos(midRad) * textRadius;
-            const valueTextY = centerY + Math.sin(midRad) * textRadius;
-
-            return (
-              <g
-                key={i}
-                transform={`translate(${dx}, ${dy})`}
-                style={{ transition: "transform 0.25s ease-out" }}
-              >
-                <path
-                  d={path}
-                  fill={slice.color}
-                  className="cursor-pointer opacity-80 hover:opacity-100"
-                  onMouseEnter={() => handleMouseEnter(slice)}
-                  onMouseLeave={handleMouseLeave}
-                />
-                {/* label for pie/ring */}
-                
-                {originalAngle > 30 && (
-                  <g>
-                    <rect
-                      x={valueTextX - labelBoxXOffset}
-                      y={valueTextY - labelBoxYOffset}
-                      width={labelBoxWidth}
-                      height={labelBoxHeight}
-                      rx={borderRadiusX}
-                      ry={borderRadiusY}
-                      fill={labelBgColor}
-                    />
-                    <text
-                      x={valueTextX}
-                      y={valueTextY}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      style={{
-                        fill: labelTextColor,
-                        fontSize: baseFontSize,
-                        fontWeight
-                      }}
-                    >
-                      {slice.value}
-                    </text>
-                  </g>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Centered Title */}
-          {data.title && data.title.trim() !== "" && titleSize.width > 0 && (
-            <foreignObject
-              x={centerX - titleSize.width / 2}
-              y={centerY - titleSize.height / 2}
-              width={titleSize.width}
-              height={titleSize.height}
-              style={{ zIndex: 1000 }}
-            >
-              <div style={titleStyle}>
-                {data.title}
-              </div>
-            </foreignObject>
-          )}
-
-          {/* Tooltip */}
-          {hoveredPoint && showTooltip && (
-            (() => {
-              const slice = hoveredPoint;
+        <div style={borderedContainerStyle} className={innerFlexClass}>
+          {isLegendFirst && showLegend && <Legend />}
+          <svg 
+            width={numericalWidth} 
+            height={numericalHeight} 
+            style={{ 
+              minWidth, 
+              maxWidth, 
+              minHeight, 
+              maxHeight,
+              width: typeof width === 'string' ? width : `${width}px`,
+              height: typeof height === 'string' ? height : `${height}px`
+            }} 
+            className="bg-white"
+          >
+            <defs>
+              <filter id="tooltipShadow" x="-40%" y="-40%" width="180%" height="180%">
+                <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity="0.4" />
+              </filter>
+            </defs>
+            
+            {displaySlices.map((slice, i) => {
+              const path = getPath(slice.startAngle, slice.endAngle, radius, innerRadius);
               const midRad = (slice.midAngle - 90) * (Math.PI / 180);
-              const offset = radius + 50;
-              let tx = centerX + Math.cos(midRad) * offset;
-              let ty = centerY + Math.sin(midRad) * offset;
-
-              let rectX = tx - tooltipWidth / 2;
-              let rectY = ty - tooltipHeight / 2;
-
-              rectX = Math.max(10, Math.min(numericalWidth - tooltipWidth - 10, rectX));
-              rectY = Math.max(10, Math.min(numericalHeight - tooltipHeight - 10, rectY));
-
-              const tl = tooltipBorderRadiusTopLeft || tooltipBorderRadiusAll || 0;
-              const tr = tooltipBorderRadiusTopRight || tooltipBorderRadiusAll || 0;
-              const br = tooltipBorderRadiusBottomRight || tooltipBorderRadiusAll || 0;
-              const bl = tooltipBorderRadiusBottomLeft || tooltipBorderRadiusAll || 0;
-
-              const tooltipPath = roundedRectPath(rectX, rectY, tooltipWidth, tooltipHeight, tl, tr, br, bl);
-
-              const labelX = rectX + 25;
-              const valueX = rectX + 10;
-              const circleX = rectX + 10;
-              const circleY = rectY + 18;
+              const popDistance = hoveredPoint?.label === slice.label ? 18 : 0;
+              const dx = Math.cos(midRad) * popDistance;
+              const dy = Math.sin(midRad) * popDistance;
+              const originalAngle = fullSlices[i].angle;
+              const valueTextX = centerX + Math.cos(midRad) * textRadius;
+              const valueTextY = centerY + Math.sin(midRad) * textRadius;
 
               return (
-                <g onMouseEnter={handleTooltipMouseEnter} onMouseLeave={handleTooltipMouseLeave}>
+                <g
+                  key={i}
+                  transform={`translate(${dx}, ${dy})`}
+                  style={{ transition: "transform 0.25s ease-out" }}
+                >
                   <path
-                    d={tooltipPath}
-                    fill={effectiveTooltipBgColor}
-                    filter={showTooltipShadow ? "url(#tooltipShadow)" : ""}
-                  />
-                  <circle
-                    cx={circleX}
-                    cy={circleY}
-                    r={6}
+                    d={path}
                     fill={slice.color}
+                    className="cursor-pointer opacity-80 hover:opacity-100"
+                    onMouseEnter={() => handleMouseEnter(slice)}
+                    onMouseLeave={handleMouseLeave}
                   />
-                  <text
-                    x={labelX}
-                    y={rectY + 20}
-                    textAnchor="start"
-                    fill={effectiveTooltipTextColor}
-                    fontSize={tooltipFontSize + 2}
-                    fontWeight={700}
-                  >
-                    {slice.label}
-                  </text>
-                  <text
-                    x={valueX}
-                    y={rectY + 38}
-                    textAnchor="start"
-                    fill={effectiveTooltipTextColor}
-                    fontSize={tooltipFontSize}
-                    fontWeight={tooltipFontWeight}
-                  >
-                    Value: {slice.value}
-                  </text>
-                  <text
-                    x={valueX}
-                    y={rectY + 52}
-                    textAnchor="start"
-                    fill={effectiveTooltipTextColor}
-                    fontSize={tooltipFontSize}
-                    fontWeight={tooltipFontWeight}
-                  >
-                    Percentage: {slice.percent}%
-                  </text>
+                  {/* label for pie/ring */}
+                  
+                  {originalAngle > 30 && (
+                    <g>
+                      <rect
+                        x={valueTextX - labelBoxXOffset}
+                        y={valueTextY - labelBoxYOffset}
+                        width={labelBoxWidth}
+                        height={labelBoxHeight}
+                        rx={borderRadiusX}
+                        ry={borderRadiusY}
+                        fill={labelBgColor}
+                      />
+                      <text
+                        x={valueTextX}
+                        y={valueTextY}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{
+                          fill: labelTextColor,
+                          fontSize: baseFontSize,
+                          fontWeight
+                        }}
+                      >
+                        {slice.value}
+                      </text>
+                    </g>
+                  )}
                 </g>
               );
-            })()
-          )}
-        </svg>
-        {!isLegendFirst && showLegend && <Legend />}
+            })}
+
+            {/* Centered Title */}
+            {data.title && data.title.trim() !== "" && titleSize.width > 0 && (
+              <foreignObject
+                x={centerX - titleSize.width / 2}
+                y={centerY - titleSize.height / 2}
+                width={titleSize.width}
+                height={titleSize.height}
+                style={{ zIndex: 1000 }}
+              >
+                <div style={titleStyle}>
+                  {data.title}
+                </div>
+              </foreignObject>
+            )}
+
+            {/* Tooltip */}
+            {hoveredPoint && showTooltip && (
+              (() => {
+                const slice = hoveredPoint;
+                const midRad = (slice.midAngle - 90) * (Math.PI / 180);
+                const offset = radius + 50;
+                let tx = centerX + Math.cos(midRad) * offset;
+                let ty = centerY + Math.sin(midRad) * offset;
+
+                let rectX = tx - tooltipWidth / 2;
+                let rectY = ty - tooltipHeight / 2;
+
+                rectX = Math.max(10, Math.min(numericalWidth - tooltipWidth - 10, rectX));
+                rectY = Math.max(10, Math.min(numericalHeight - tooltipHeight - 10, rectY));
+
+                const tl = tooltipBorderRadiusTopLeft || tooltipBorderRadiusAll || 0;
+                const tr = tooltipBorderRadiusTopRight || tooltipBorderRadiusAll || 0;
+                const br = tooltipBorderRadiusBottomRight || tooltipBorderRadiusAll || 0;
+                const bl = tooltipBorderRadiusBottomLeft || tooltipBorderRadiusAll || 0;
+
+                const tooltipPath = roundedRectPath(rectX, rectY, tooltipWidth, tooltipHeight, tl, tr, br, bl);
+
+                const labelX = rectX + 25;
+                const valueX = rectX + 10;
+                const circleX = rectX + 10;
+                const circleY = rectY + 18;
+
+                return (
+                  <g onMouseEnter={handleTooltipMouseEnter} onMouseLeave={handleTooltipMouseLeave}>
+                    <path
+                      d={tooltipPath}
+                      fill={effectiveTooltipBgColor}
+                      filter={showTooltipShadow ? "url(#tooltipShadow)" : ""}
+                    />
+                    <circle
+                      cx={circleX}
+                      cy={circleY}
+                      r={6}
+                      fill={slice.color}
+                    />
+                    <text
+                      x={labelX}
+                      y={rectY + 20}
+                      textAnchor="start"
+                      fill={effectiveTooltipTextColor}
+                      fontSize={tooltipFontSize + 2}
+                      fontWeight={700}
+                    >
+                      {slice.label}
+                    </text>
+                    <text
+                      x={valueX}
+                      y={rectY + 38}
+                      textAnchor="start"
+                      fill={effectiveTooltipTextColor}
+                      fontSize={tooltipFontSize}
+                      fontWeight={tooltipFontWeight}
+                    >
+                      Value: {slice.value}
+                    </text>
+                    <text
+                      x={valueX}
+                      y={rectY + 52}
+                      textAnchor="start"
+                      fill={effectiveTooltipTextColor}
+                      fontSize={tooltipFontSize}
+                      fontWeight={tooltipFontWeight}
+                    >
+                      Percentage: {slice.percent}%
+                    </text>
+                  </g>
+                );
+              })()
+            )}
+          </svg>
+          {!isLegendFirst && showLegend && <Legend />}
+        </div>
       </div>
       {data.title && data.title.trim() !== "" && (
         <div
