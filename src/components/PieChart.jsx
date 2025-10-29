@@ -10,9 +10,10 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
 
+
   componentDidCatch(error, errorInfo) {
     console.error('PieChart Error:', error, errorInfo);
-    // customize error handling, send to logging service
+    // error handling
   }
 
   render() {
@@ -38,20 +39,22 @@ const parseSize = (size) => {
   const num = parseFloat(match[1]);
   const unit = match[2];
   if (isNaN(num)) return 0;
-  // For simplicity, assume px; % and vw would need viewport info which we don't have here
+  // % and vw would need viewport info which we don't have here
   return num;
 };
 
 export default function PieChart({
-  data = [
-    { label: "Sales", value: 35 },
-    { label: "Marketing", value: 20 },
-    { label: "Support", value: 25 },
-    // { label: "Test", value: 10 },
+  data = {
+    title: "Departments",
+    data: [
+      { label: "Sales", value: 35 },
+      { label: "Marketing", value: 20 },
+      { label: "Support", value: 25 },
+      // { label: "Test", value: 10 },
+    ],
+  },
 
-  ],
-
-  type = "ring", //if the chart is ring or pie
+  type = "pie", //if the chart is ring or pie
 
   //overall size
   width = '400px',
@@ -67,7 +70,7 @@ export default function PieChart({
   
   //control label (on chart), color and font for this graph except tooltip.
   baseFontSize = 10,
-  fontWeight = 500,
+  fontWeight = 600,
   labelBgColor = "#9caddf",
   labelTextColor = "#ffffff",
 
@@ -104,15 +107,60 @@ export default function PieChart({
   tooltipHeight = 60,
 
   showTooltipShadow = true, // on/off tooltip shadow
+
+  //======Border props for overall chart container
+  borderTop = 10,
+  borderRight = 10,
+  borderBottom = 10,
+  borderLeft = 10,
+  borderColor = "red",
+  borderStyle = "solid",
+
+
+  borderRadiusAll = 0, //set radius for all the corners together
+  //change each corner of the container
+  borderRadiusTopLeft = 50,
+  borderRadiusTopRight = 0,
+  borderRadiusBottomRight = 90,
+  borderRadiusBottomLeft = 0,
+
+  //======Box Shadow props for overall chart container
+  boxShadowColor = "blue",
+  boxShadowOffsetX = 0,
+  boxShadowOffsetY = 0,
+  boxShadowBlurRadius = 10,
+  boxShadowSpreadRadius = 0,
 }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [titleSize, setTitleSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef(null);
+  const titleRef = useRef(null);
   const timeoutRef = useRef(null);
 
-  if (!data || data.length === 0) return <div className="text-red-500">No data</div>;
+  const titleStyle = {
+    display: 'inline-block',
+    backgroundColor: labelBgColor,
+    color: labelTextColor,
+    padding: '0.25rem 0.75rem',
+    borderRadius: `${borderRadiusX}px`,
+    fontSize: `${baseFontSize * 1.5}px`,
+    fontWeight: 700,
+    lineHeight: 1.2,
+    whiteSpace: 'normal',
+    wordWrap: 'break-word',
+  };
 
-  const values = data.map((d) => d.value);
+  useEffect(() => {
+    if (titleRef.current) {
+      const rect = titleRef.current.getBoundingClientRect();
+      setTitleSize({ width: rect.width, height: rect.height });
+    }
+  }, [data.title, baseFontSize, labelBgColor, labelTextColor, borderRadiusX]);
+
+  if (!data || !data.data || data.data.length === 0) return <div className="text-red-500">No data</div>;
+
+  const values = data.data.map((d) => d.value);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
 
@@ -123,7 +171,7 @@ export default function PieChart({
     return `hsl(210, 100%, ${lightness}%)`;
   };
 
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+  const total = data.data.reduce((sum, d) => sum + d.value, 0);
   if (total === 0) return <div className="text-red-500">No data</div>;
 
   const numericalWidth = parseSize(width);
@@ -136,7 +184,7 @@ export default function PieChart({
 
   // Compute full slices
   let fullCumulative = 0;
-  const fullSlices = data.map((d) => {
+  const fullSlices = data.data.map((d) => {
     const fullAngle = (d.value / total) * 360;
     const startAngle = fullCumulative;
     const endAngle = fullCumulative + fullAngle;
@@ -238,7 +286,7 @@ export default function PieChart({
 
   const Legend = () => (
     <div className="space-y-4">
-      {data.map((d, i) => (
+      {data.data.map((d, i) => (
         <div key={i} className="flex items-center gap-3">
           <div
             className="w-5 h-5 rounded-full"
@@ -301,9 +349,27 @@ export default function PieChart({
   const effectiveTooltipTextColor = tooltipTextColor || "white";
   const effectiveTooltipBgColor = tooltipBgColor || "#1874da";
 
+  const containerBorderStyle = {
+    borderTopWidth: `${borderTop}px`,
+    borderRightWidth: `${borderRight}px`,
+    borderBottomWidth: `${borderBottom}px`,
+    borderLeftWidth: `${borderLeft}px`,
+    borderColor,
+    borderStyle,
+    borderTopLeftRadius: `${borderRadiusTopLeft || borderRadiusAll || 0}px`,
+    borderTopRightRadius: `${borderRadiusTopRight || borderRadiusAll || 0}px`,
+    borderBottomRightRadius: `${borderRadiusBottomRight || borderRadiusAll || 0}px`,
+    borderBottomLeftRadius: `${borderRadiusBottomLeft || borderRadiusAll || 0}px`,
+    boxShadow: `${boxShadowOffsetX}px ${boxShadowOffsetY}px ${boxShadowBlurRadius}px ${boxShadowSpreadRadius}px ${boxShadowColor}`,
+  };
+
   return (
     <ErrorBoundary>
-      <div className={containerClass} ref={containerRef}>
+      <div 
+        className={containerClass} 
+        ref={containerRef}
+        style={containerBorderStyle}
+      >
         {isLegendFirst && <Legend />}
         <svg 
           width={numericalWidth} 
@@ -347,6 +413,8 @@ export default function PieChart({
                   onMouseEnter={() => handleMouseEnter(slice)}
                   onMouseLeave={handleMouseLeave}
                 />
+                {/* label for pie/ring */}
+                
                 {originalAngle > 30 && (
                   <g>
                     <rect
@@ -376,6 +444,21 @@ export default function PieChart({
               </g>
             );
           })}
+
+          {/* Centered Title */}
+          {data.title && data.title.trim() !== "" && titleSize.width > 0 && (
+            <foreignObject
+              x={centerX - titleSize.width / 2}
+              y={centerY - titleSize.height / 2}
+              width={titleSize.width}
+              height={titleSize.height}
+              style={{ zIndex: 1000 }}
+            >
+              <div style={titleStyle}>
+                {data.title}
+              </div>
+            </foreignObject>
+          )}
 
           {/* Tooltip */}
           {hoveredPoint && showTooltip && (
@@ -454,6 +537,19 @@ export default function PieChart({
         </svg>
         {!isLegendFirst && showLegend && <Legend />}
       </div>
+      {data.title && data.title.trim() !== "" && (
+        <div
+          ref={titleRef}
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            visibility: 'hidden',
+            ...titleStyle
+          }}
+        >
+          {data.title}
+        </div>
+      )}
     </ErrorBoundary>
   );
 }
