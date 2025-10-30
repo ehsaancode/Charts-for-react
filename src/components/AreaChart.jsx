@@ -59,7 +59,7 @@ export default function AreaChart({
 
   const createSmoothPath = (points) => {
     let curveD = createCurvePath(points);
-    // Close the path by following the axes
+    // Close the path following the axes
     curveD += ` L ${scaleX(points[points.length - 1].x)} ${height - padding}`; // down to x-axis
     curveD += ` L ${padding} ${height - padding}`; // along x-axis to y-axis
     curveD += ` L ${padding} ${scaleY(points[0].y)}`; // up y-axis to start point
@@ -79,7 +79,7 @@ export default function AreaChart({
       linePath.style.strokeDashoffset = totalLength;
       clipRect.setAttribute("width", "0");
       let startTime = null;
-      const duration = 2000; // 2 seconds
+      const duration = 2000;
       const animate = (timestamp) => {
         if (startTime === null) startTime = timestamp;
         const elapsed = timestamp - startTime;
@@ -103,7 +103,7 @@ export default function AreaChart({
   );
   const yTicks = useMemo(() => [0, 20, 40, 60, 80, 100], []);
 
-  // Add console logs to debug hover state
+  // console logs to debug hover
   const handleMouseEnter = (p) => {
     console.log("Mouse Enter:", p);
     setHoveredPoint(p);
