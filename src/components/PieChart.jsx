@@ -53,7 +53,7 @@ export default function PieChart({
   maxWidth = "none",
   minHeight = "100px",
   maxHeight = "none",
-  
+
   legendPosition = "right", //set position to left, right, top, bottom
   showLegend = true, //hide legend
   alignment = "center", // left, center, right, stretch, baseline, auto
@@ -83,7 +83,7 @@ export default function PieChart({
   labelBoxHeight = 20,
   labelBoxXOffset = 15,
   labelBoxYOffset = 11,
-  //radius for pie box value on the chart.
+  //radius for pie [box] value on the chart.
   borderRadiusX = 4,
   borderRadiusY = 4,
   //==================Tooltip modification
@@ -124,7 +124,7 @@ export default function PieChart({
   borderRadiusBottomRight = 90,
   borderRadiusBottomLeft = 50,
   //======Box Shadow props for overall chart container
-  boxShadowColor = "blue",
+  boxShadowColor = "#800080",
   boxShadowOffsetX = 0,
   boxShadowOffsetY = 0,
   boxShadowBlurRadius = 10,
@@ -442,8 +442,7 @@ export default function PieChart({
     }
   };
   const outerJustifyClass = getJustifyClass(alignment);
-  const outerItemsClass =
-    alignment === "baseline" ? "items-baseline" : "items-center";
+  const outerItemsClass = alignment === "baseline" ? "items-baseline" : "items-center";
   const containerClass = `flex ${outerItemsClass} ${outerJustifyClass}`;
   const innerFlexClass = `flex ${
     isVerticalLayout ? "flex-col items-center gap-8" : "items-center gap-12"
