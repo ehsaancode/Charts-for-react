@@ -22,7 +22,7 @@ export default function LineChart({
   xMax = 10,
   yMin = 0,
   yMax = 100,
-  color = "#4A90E2",
+  color = "#4A90E2", //graph line color
 
   showTitle = true, // toggle the title
   showTooltip = true,
@@ -41,8 +41,8 @@ export default function LineChart({
   showXlabel = true,
   showYlabel = true,
 
-  //======Border props for overall chart container
-  borderAll = 10,
+  //Border props for overall chart container
+  borderAll = 0,
   borderTop = 0,
   borderRight = 0,
   borderBottom = 0,
@@ -50,7 +50,7 @@ export default function LineChart({
   borderColor = "#000000",
   borderStyle = "solid", //none, solid, dashed, dotted
 
-  //======Border colors for each side
+  //Border colors for each side
   borderTopColor = "red",
   borderRightColor = "",
   borderBottomColor = "",
@@ -62,17 +62,195 @@ export default function LineChart({
   borderRadiusBottomRight = 0,
   borderRadiusBottomLeft = 0,
 
-    //======Box Shadow props for overall chart container
-    boxShadowColor = "cyan",
-    boxShadowOffsetX = 10,
-    boxShadowOffsetY = 10,
-    boxShadowBlurRadius = 50,
-    boxShadowSpreadRadius = 5,
+  //==Box Shadow props for overall chart container
+  boxShadowColor = "cyan",
+  boxShadowOffsetX = 10,
+  boxShadowOffsetY = 10,
+  boxShadowBlurRadius = 50,
+  boxShadowSpreadRadius = 5,
+
+  //Padding props for inside the border
+  paddingAll = 20,
+  paddingTop = 0,
+  paddingRight = 0,
+  paddingBottom = 0,
+  paddingLeft = 0,
+
+  //Margin props for outside the border
+  marginAll = 20,
+  marginTop = 0,
+  marginRight = 0,
+  marginBottom = 50,
+  marginLeft = 0,
+
+  //Background color inside the border
+  backgroundColor = "#FFFFFF",
+  //============Linear Gradient Background props
+  useLinearGradient = true,
+  gradientColors = ["pink", "white"],
+  gradientAngle = 35,
+  gradientStops = [20, 90],
+  //=====Radial Gradient Background props
+  useRadialGradient = false,
+  radialGradientColors = ["pink", "pink", "white"],
+  radialGradientStops = [10, 40, 90],
+
+  //======Background Image props
+  backgroundImageUrl = "https://plus.unsplash.com/premium_photo-1668708034279-ab8fa3a9e19b?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1170",
+  backgroundImageFit = "cover", //none, cover, contain, fill, fit-height, fit-width
+  backgroundImageAlt = "test img",
+  backgroundImageTitle = "background image title",
+  backgroundImageRepeat = "repeat", //repeat X, repeat Y, repeat, none
+
+  //===Linear Gradient Foreground props
+  useLinearGradientForeground = false,
+  gradientColorsForeground = ["red", "white", "green"],
+  gradientAngleForeground = 30,
+  gradientStopsForeground = [0, 50, 100],
+
+  //Radial Gradient Foreground props
+  useRadialGradientForeground = false,
+  radialGradientColorsForeground = ["red", "pink", "green"],
+  radialGradientStopsForeground = [0, 50, 100],
+
+  //single foreground color
+  foregroundColor = "",
+
+  // chart alignment
+  alignment = "auto", // left, center, right, stretch, baseline, auto
+
+
 }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   const pathRef = useRef(null);
   const containerRef = useRef(null);
+
+  //foreground
+  const effectiveForegroundColor = foregroundColor || "#374151";
+  const useGradientForText =
+    useLinearGradientForeground || useRadialGradientForeground;
+  const getForegroundGradientCSS = () => {
+    if (
+      useRadialGradientForeground &&
+      radialGradientColorsForeground &&
+      radialGradientColorsForeground.length > 0
+    ) {
+      const stops =
+        radialGradientStopsForeground.length ===
+        radialGradientColorsForeground.length
+          ? radialGradientStopsForeground
+          : Array.from(
+              { length: radialGradientColorsForeground.length },
+              (_, i) =>
+                Math.round(
+                  (i / (radialGradientColorsForeground.length - 1)) * 100
+                )
+            );
+      const colorStops = radialGradientColorsForeground
+        .map((color, i) => `${color} ${stops[i]}%`)
+        .join(", ");
+      return `radial-gradient(circle at center, ${colorStops})`;
+    } else if (
+      useLinearGradientForeground &&
+      gradientColorsForeground &&
+      gradientColorsForeground.length > 0
+    ) {
+      const stops =
+        gradientStopsForeground.length === gradientColorsForeground.length
+          ? gradientStopsForeground
+          : Array.from({ length: gradientColorsForeground.length }, (_, i) =>
+              Math.round((i / (gradientColorsForeground.length - 1)) * 100)
+            );
+      const colorStops = gradientColorsForeground
+        .map((color, i) => `${color} ${stops[i]}%`)
+        .join(", ");
+      return `linear-gradient(${gradientAngleForeground}deg, ${colorStops})`;
+    }
+    return null;
+  };
+  const foregroundGradientCSS = useGradientForText
+    ? getForegroundGradientCSS()
+    : null;
+  const titleTextStyle = {
+    color: useGradientForText ? "transparent" : effectiveForegroundColor,
+    ...(useGradientForText && {
+      backgroundImage: foregroundGradientCSS,
+      WebkitBackgroundClip: "text",
+      backgroundClip: "text",
+    }),
+  };
+
+  const getFallbackBackgroundImage = () => {
+    if (
+      useRadialGradient &&
+      radialGradientColors &&
+      radialGradientColors.length > 0
+    ) {
+      const stops =
+        radialGradientStops.length === radialGradientColors.length
+          ? radialGradientStops
+          : Array.from({ length: radialGradientColors.length }, (_, i) =>
+              Math.round((i / (radialGradientColors.length - 1)) * 100)
+            );
+      const colorStops = radialGradientColors
+        .map((color, i) => `${color} ${stops[i]}%`)
+        .join(", ");
+      return `radial-gradient(circle at center, ${colorStops})`;
+    } else if (
+      useLinearGradient &&
+      gradientColors &&
+      gradientColors.length > 0
+    ) {
+      const stops =
+        gradientStops.length === gradientColors.length
+          ? gradientStops
+          : Array.from({ length: gradientColors.length }, (_, i) =>
+              Math.round((i / (gradientColors.length - 1)) * 100)
+            );
+      const colorStops = gradientColors
+        .map((color, i) => `${color} ${stops[i]}%`)
+        .join(", ");
+      return `linear-gradient(${gradientAngle}deg, ${colorStops})`;
+    }
+    return null;
+  };
+
+  const fallbackBgImage = getFallbackBackgroundImage();
+  const isFallbackGradient = fallbackBgImage !== null;
+  const fallbackColor = isFallbackGradient ? "transparent" : (backgroundColor || "transparent");
+
+  const getBackgroundSize = (fit) => {
+    const map = {
+      none: "auto",
+      cover: "cover",
+      contain: "contain",
+      fill: "100% 100%",
+      "fit-height": "auto 100%",
+      "fit-width": "100% auto",
+    };
+    return map[fit] || "auto";
+  };
+
+  const getBackgroundRepeat = (rep) => {
+    const map = {
+      none: "no-repeat",
+      "repeat X": "repeat-x",
+      "repeat Y": "repeat-y",
+      repeat: "repeat",
+    };
+    return map[rep] || "no-repeat";
+  };
+
+  let backgroundImage = "";
+  if (backgroundImageUrl) {
+    backgroundImage = `url(${backgroundImageUrl})`;
+    if (fallbackBgImage) {
+      backgroundImage += `, ${fallbackBgImage}`;
+    }
+  } else if (fallbackBgImage) {
+    backgroundImage = fallbackBgImage;
+  }
 
   if (!data || !data.data || data.data.length === 0)
     return <div className="text-red-500">No data</div>;
@@ -82,11 +260,25 @@ export default function LineChart({
   const effectiveBorderBottom = borderBottom || borderAll || 0;
   const effectiveBorderLeft = borderLeft || borderAll || 0;
 
+  const effectivePaddingTop = paddingTop || paddingAll || 0;
+  const effectivePaddingRight = paddingRight || paddingAll || 0;
+  const effectivePaddingBottom = paddingBottom || paddingAll || 0;
+  const effectivePaddingLeft = paddingLeft || paddingAll || 0;
+
+  const effectiveMarginTop = marginTop || marginAll || 0;
+  const effectiveMarginRight = marginRight || marginAll || 0;
+  const effectiveMarginBottom = marginBottom || marginAll || 0;
+  const effectiveMarginLeft = marginLeft || marginAll || 0;
+
   const totalBorderHorizontal = effectiveBorderLeft + effectiveBorderRight;
   const totalBorderVertical = effectiveBorderTop + effectiveBorderBottom;
+  const totalPaddingHorizontal = effectivePaddingLeft + effectivePaddingRight;
+  const totalPaddingVertical = effectivePaddingTop + effectivePaddingBottom;
   const titleSpace = showTitle ? 40 : 0;
-  const svgWidth = width - totalBorderHorizontal;
-  const svgHeight = height - totalBorderVertical - titleSpace;
+  const svgWidth = width - totalBorderHorizontal - totalPaddingHorizontal;
+  const contentHeight = height - totalBorderVertical - totalPaddingVertical;
+  const svgHeight = contentHeight - titleSpace;
+  
 
   if (svgWidth <= 0 || svgHeight <= 0)
     return <div className="text-red-500">Insufficient space</div>;
@@ -169,6 +361,33 @@ export default function LineChart({
     setHoveredPoint(null);
   };
 
+  const getAlignItemsClass = (align) => {
+    switch (align) {
+      case "left":
+        return "items-start";
+      case "center":
+        return "items-center";
+      case "right":
+        return "items-end";
+      case "stretch":
+        return "items-stretch";
+      case "baseline":
+        return "items-baseline";
+      case "auto":
+      default:
+        return "items-center";
+    }
+  };
+
+  const outerItemsClass = getAlignItemsClass(alignment);
+
+  const marginStyle = {
+    marginTop: `${effectiveMarginTop}px`,
+    marginRight: `${effectiveMarginRight}px`,
+    marginBottom: `${effectiveMarginBottom}px`,
+    marginLeft: `${effectiveMarginLeft}px`,
+  };
+
   const borderedContainerStyle = {
     width: `${width}px`,
     height: `${height}px`,
@@ -189,149 +408,230 @@ export default function LineChart({
     borderBottomRightRadius: `${borderRadiusBottomRight || borderRadiusAll || 0}px`,
     borderBottomLeftRadius: `${borderRadiusBottomLeft || borderRadiusAll || 0}px`,
     overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    paddingTop: `${effectivePaddingTop}px`,
+    paddingRight: `${effectivePaddingRight}px`,
+    paddingBottom: `${effectivePaddingBottom}px`,
+    paddingLeft: `${effectivePaddingLeft}px`,
+    backgroundColor: fallbackColor,
+    ...(backgroundImage && { backgroundImage }),
+    ...(backgroundImageUrl && {
+      backgroundRepeat: getBackgroundRepeat(backgroundImageRepeat),
+      backgroundSize: getBackgroundSize(backgroundImageFit),
+      backgroundPosition: "center center",
+    }),
   };
 
   return (
-    <div ref={containerRef} className="relative flex flex-col mt-20 items-center">
-      <div style={borderedContainerStyle}>
-        <svg width={svgWidth} height={svgHeight} className="bg-white">
-          
-          {/* Grid lines */}
-          {showXGrid && xTicks.map((x) => (
-            <line
-              key={`gx-${x}`}
-              x1={scaleX(x)}
-              y1={padding}
-              x2={scaleX(x)}
-              y2={svgHeight - padding}
-              stroke={gridLineXColor}
-              strokeWidth={gridLineXWidth}
-            />
-          ))}
-          { showYGrid && yTicks.map((y) => (
-            <line
-              key={`gy-${y}`}
-              x1={padding}
-              y1={scaleY(y)}
-              x2={svgWidth - padding}
-              y2={scaleY(y)}
-              stroke={gridLineYColor}
-              strokeWidth={gridLineYWidth}
-            />
-          ))}
-
-          {/* Axes */}
-          <line
-            x1={padding}
-            y1={svgHeight - padding}
-            x2={svgWidth - padding}
-            y2={svgHeight - padding}
-            className="stroke-black"
-          />
-          <line
-            x1={padding}
-            y1={padding}
-            x2={padding}
-            y2={svgHeight - padding}
-            className="stroke-black"
-          />
-
-          {/* Smooth line with animation */}
-          <path
-            ref={pathRef}
-            d={pathD}
-            fill="none"
-            stroke={color}
-            strokeWidth={4}
-            className="opacity-60"
-          />
-
-          {data.data.map((p, i) => (
-            <g key={i}>
-              {(showMarkers || showTooltip) && (
-                <circle
-                  cx={scaleX(p.x)}
-                  cy={scaleY(p.y)}
-                  r={showMarkers ? markerSize : 8}
-                  fill={showMarkers ? color : "transparent"}
-                  className={showMarkers ? "stroke-white cursor-pointer" : "cursor-pointer"}
-                  stroke={showMarkers ? "white" : "none"}
-                  strokeWidth={showMarkers ? 1.5 : 0}
-                  onMouseEnter={() => handleMouseEnter(p)}
-                  onMouseLeave={handleMouseLeave}
-                />
-              )}
-
-              {showTooltip && hoveredPoint?.x === p.x && hoveredPoint?.y === p.y && (
-                <g>
-                  {/* Tooltip background */}
-                  <rect
-                    x={scaleX(p.x) - 45}
-                    y={scaleY(p.y) - 50}
-                    width={100}
-                    height={40}
-                    fill="rgba(0,0,0,0.85)"
-                    rx={8}
-                  />
-
-                  {/* Tooltip text */}
-                  <text
-                    x={scaleX(p.x) + 5}
-                    y={scaleY(p.y) - 35}
-                    fill="white"
-                    textAnchor="middle"
-                    fontSize="12"
-                  >
-                    <tspan
-                      x={scaleX(p.x) + 5}
-                      dy="0"
-                      fontWeight="bold"
-                      fontSize="13"
+    <div ref={containerRef} className={`relative flex flex-col mt-20 ${outerItemsClass}`}>
+      <div style={marginStyle}>
+        <div 
+          style={borderedContainerStyle} 
+          title={backgroundImageTitle} 
+          aria-label={backgroundImageAlt}
+        >
+          <svg width={svgWidth} height={svgHeight} className="">
+            <defs>
+              {useGradientForText && (
+                <>
+                  {useRadialGradientForeground ? (
+                    <radialGradient
+                      id="fgGrad"
+                      cx="0.5"
+                      cy="0.5"
+                      r="0.5"
+                      gradientUnits="objectBoundingBox"
                     >
-                      {data.title}
-                    </tspan>
-                    <tspan x={scaleX(p.x) + 5} dy="16" fontSize="12">
-                      {`x: ${p.x}, y: ${p.y}`}
-                    </tspan>
-                  </text>
-                </g>
+                      {(() => {
+                        const colors = radialGradientColorsForeground;
+                        const stopsArr =
+                          radialGradientStopsForeground.length === colors.length
+                            ? radialGradientStopsForeground
+                            : Array.from({ length: colors.length }, (_, i) =>
+                                Math.round((i / (colors.length - 1)) * 100)
+                              );
+                        return colors.map((color, i) => (
+                          <stop
+                            key={i}
+                            offset={`${stopsArr[i]}%`}
+                            stopColor={color}
+                          />
+                        ));
+                      })()}
+                    </radialGradient>
+                  ) : (
+                    <linearGradient
+                      id="fgGrad"
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="0"
+                      gradientUnits="objectBoundingBox"
+                      gradientTransform={`rotate(${gradientAngleForeground}, 0.5, 0.5)`}
+                    >
+                      {(() => {
+                        const colors = gradientColorsForeground;
+                        const stopsArr =
+                          gradientStopsForeground.length === colors.length
+                            ? gradientStopsForeground
+                            : Array.from({ length: colors.length }, (_, i) =>
+                                Math.round((i / (colors.length - 1)) * 100)
+                              );
+                        return colors.map((color, i) => (
+                          <stop
+                            key={i}
+                            offset={`${stopsArr[i]}%`}
+                            stopColor={color}
+                          />
+                        ));
+                      })()}
+                    </linearGradient>
+                  )}
+                </>
               )}
-            </g>
-          ))}
+            </defs>
+            
+            {/* Grid lines */}
+            {showXGrid && xTicks.map((x) => (
+              <line
+                key={`gx-${x}`}
+                x1={scaleX(x)}
+                y1={padding}
+                x2={scaleX(x)}
+                y2={svgHeight - padding}
+                stroke={gridLineXColor}
+                strokeWidth={gridLineXWidth}
+              />
+            ))}
+            { showYGrid && yTicks.map((y) => (
+              <line
+                key={`gy-${y}`}
+                x1={padding}
+                y1={scaleY(y)}
+                x2={svgWidth - padding}
+                y2={scaleY(y)}
+                stroke={gridLineYColor}
+                strokeWidth={gridLineYWidth}
+              />
+            ))}
 
-          {/* Axis labels */}
-          {showXlabel && xTicks.map((x) => (
-            <text
-              key={`tx-${x}`}
-              x={scaleX(x)}
-              y={svgHeight - padding + 20}
-              className="text-xs text-gray-600 text-center"
-              textAnchor="middle"
-            >
-              {x}
-            </text>
-          ))}
-          {showYlabel && yTicks.map((y) => (
-            <text
-              key={`ty-${y}`}
-              x={padding - 10}
-              y={scaleY(y) + 4}
-              className="text-xs text-gray-600 text-right"
-              textAnchor="end"
-            >
-              {y.toFixed(1)}
-            </text>
-          ))}
-        </svg>
-        {showTitle && (
-          <div className="flex items-center justify-center mt-4 gap-2">
-            <div
-              className="w-3 h-3 rounded-xs opacity-60"
-              style={{ backgroundColor: color }}
+            {/* Axes */}
+            <line
+              x1={padding}
+              y1={svgHeight - padding}
+              x2={svgWidth - padding}
+              y2={svgHeight - padding}
+              className="stroke-black"
             />
-            <span className="text-xs text-gray-500">{data.title}</span>
-          </div>
-        )}
+            <line
+              x1={padding}
+              y1={padding}
+              x2={padding}
+              y2={svgHeight - padding}
+              className="stroke-black"
+            />
+
+            {/* Smooth line with animation */}
+            <path
+              ref={pathRef}
+              d={pathD}
+              fill="none"
+              stroke={color}
+              strokeWidth={4}
+              className="opacity-60"
+            />
+
+            {data.data.map((p, i) => (
+              <g key={i}>
+                {(showMarkers || showTooltip) && (
+                  <circle
+                    cx={scaleX(p.x)}
+                    cy={scaleY(p.y)}
+                    r={showMarkers ? markerSize : 8}
+                    fill={showMarkers ? color : "transparent"}
+                    className={showMarkers ? "stroke-white cursor-pointer" : "cursor-pointer"}
+                    stroke={showMarkers ? "white" : "none"}
+                    strokeWidth={showMarkers ? 1.5 : 0}
+                    onMouseEnter={() => handleMouseEnter(p)}
+                    onMouseLeave={handleMouseLeave}
+                  />
+                )}
+
+                {showTooltip && hoveredPoint?.x === p.x && hoveredPoint?.y === p.y && (
+                  <g>
+                    {/* Tooltip background */}
+                    <rect
+                      x={scaleX(p.x) - 45}
+                      y={scaleY(p.y) - 50}
+                      width={100}
+                      height={40}
+                      fill="rgba(0,0,0,0.85)"
+                      rx={8}
+                    />
+
+                    {/* Tooltip text */}
+                    <text
+                      x={scaleX(p.x) + 5}
+                      y={scaleY(p.y) - 35}
+                      fill="white"
+                      textAnchor="middle"
+                      fontSize="12"
+                    >
+                      <tspan
+                        x={scaleX(p.x) + 5}
+                        dy="0"
+                        fontWeight="bold"
+                        fontSize="13"
+                      >
+                        {data.title}
+                      </tspan>
+                      <tspan x={scaleX(p.x) + 5} dy="16" fontSize="12">
+                        {`x: ${p.x}, y: ${p.y}`}
+                      </tspan>
+                    </text>
+                  </g>
+                )}
+              </g>
+            ))}
+
+            {/* Axis labels */}
+            {showXlabel && xTicks.map((x) => (
+              <text
+                key={`tx-${x}`}
+                x={scaleX(x)}
+                y={svgHeight - padding + 20}
+                className="text-xs text-center"
+                textAnchor="middle"
+                fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
+              >
+                {x}
+              </text>
+            ))}
+            {showYlabel && yTicks.map((y) => (
+              <text
+                key={`ty-${y}`}
+                x={padding - 10}
+                y={scaleY(y) + 4}
+                className="text-xs text-right"
+                textAnchor="end"
+                fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
+              >
+                {y.toFixed(1)}
+              </text>
+            ))}
+          </svg>
+          {showTitle && (
+            <div className="flex items-center justify-center mt-4 gap-2">
+              <div
+                className="w-3 h-3 rounded-xs opacity-60"
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-xs" style={titleTextStyle}>{data.title}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

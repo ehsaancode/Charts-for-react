@@ -9,11 +9,12 @@ function App() {
 
   return (
     <>
-      <AreaChart/>
       <ColumnChart/>
       <BarChartTest/>
       <PieChart/>
       <LineChart/>
+      <AreaChart/>
+
 
     </>
   )

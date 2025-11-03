@@ -35,6 +35,8 @@ const parseSize = (size) => {
   // % and vw need viewport info.
   return num;
 };
+
+
 export default function PieChart({
   data = {
     title: "Departments",
@@ -65,6 +67,7 @@ export default function PieChart({
   labelBgColor = "#9caddf",
   labelTextColor = "#ffffff",
 
+  //single foreground color
   foregroundColor = "",
 
   //======Linear Gradient Foreground props
@@ -73,7 +76,7 @@ export default function PieChart({
   gradientAngleForeground = 30,
   gradientStopsForeground = [0, 50, 100],
 
-  //======Radial Gradient Foreground props
+  //======Radial Gradient Foreground
   useRadialGradientForeground = false,
   radialGradientColorsForeground = ["red", "pink", "green"],
   radialGradientStopsForeground = [0, 50, 100],
@@ -106,10 +109,10 @@ export default function PieChart({
   tooltipHeight = 60,
   showTooltipShadow = true, // on/off tooltip shadow
   //======Border props for overall chart container
-  borderTop = 10,
-  borderRight = 10,
-  borderBottom = 10,
-  borderLeft = 10,
+  borderTop = 0,
+  borderRight = 0,
+  borderBottom = 0,
+  borderLeft = 0,
   borderColor = "red",
   borderStyle = "solid", //dotted, dashed, solid
   //======Border colors for each side
@@ -124,11 +127,12 @@ export default function PieChart({
   borderRadiusBottomRight = 90,
   borderRadiusBottomLeft = 50,
   //======Box Shadow props for overall chart container
-  boxShadowColor = "#800080",
-  boxShadowOffsetX = 0,
-  boxShadowOffsetY = 0,
-  boxShadowBlurRadius = 10,
+  boxShadowColor = "cyan",
+  boxShadowOffsetX = 10,
+  boxShadowOffsetY = 10,
+  boxShadowBlurRadius = 50,
   boxShadowSpreadRadius = 5,
+
   //======Background color inside the border
   backgroundColor = "yellow",
   //======Linear Gradient Background props
@@ -139,7 +143,7 @@ export default function PieChart({
   //======Radial Gradient Background props
   useRadialGradient = false,
   radialGradientColors = ["white", "pink", "yellow"],
-  radialGradientStops = [20, 50, 90],
+  radialGradientStops = [10, 50, 90],
   //======Padding props for inside the border
   paddingAll = 0,
   paddingTop = 0,
@@ -152,9 +156,17 @@ export default function PieChart({
   marginRight = 0,
   marginBottom = 0,
   marginLeft = 0,
+
+  //======Background Image props
+  backgroundImageUrl = "https://plus.unsplash.com/premium_photo-1705590406614-d8d4f6986550?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1116",
+  backgroundImageFit = "cover", //none, cover, contain, fill, fit-height, fit-width
+  backgroundImageAlt = "test img",
+  backgroundImageTitle = "background image title",
+  backgroundImageRepeat = "repeat X", //repeat X, repeat Y, repeat, none
 }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
   const [titleSize, setTitleSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef(null);
   const titleRef = useRef(null);
@@ -459,7 +471,7 @@ export default function PieChart({
     marginBottom: `${effectiveMargin.bottom}px`,
     marginLeft: `${effectiveMargin.left}px`,
   };
-  const getBackground = () => {
+  const getFallbackBackgroundImage = () => {
     if (
       useRadialGradient &&
       radialGradientColors &&
@@ -491,25 +503,52 @@ export default function PieChart({
         .join(", ");
       return `linear-gradient(${gradientAngle}deg, ${colorStops})`;
     }
-    return backgroundColor || "transparent";
+    return null;
   };
-  const effectiveBackground = getBackground();
+
+  const fallbackBgImage = getFallbackBackgroundImage();
+  const isFallbackGradient = fallbackBgImage !== null;
+  const fallbackColor = isFallbackGradient ? "transparent" : (backgroundColor || "transparent");
+
+  const getBackgroundSize = (fit) => {
+    const map = {
+      none: "auto",
+      cover: "cover",
+      contain: "contain",
+      fill: "100% 100%",
+      "fit-height": "auto 100%",
+      "fit-width": "100% auto",
+    };
+    return map[fit] || "auto";
+  };
+
+  const getBackgroundRepeat = (rep) => {
+    const map = {
+      none: "no-repeat",
+      "repeat X": "repeat-x",
+      "repeat Y": "repeat-y",
+      repeat: "repeat",
+    };
+    return map[rep] || "no-repeat";
+  };
+
+  let backgroundImage = "";
+  if (backgroundImageUrl) {
+    backgroundImage = `url(${backgroundImageUrl})`;
+    if (fallbackBgImage) {
+      backgroundImage += `, ${fallbackBgImage}`;
+    }
+  } else if (fallbackBgImage) {
+    backgroundImage = fallbackBgImage;
+  }
+
+  const effectiveBackground = backgroundImage || fallbackColor;
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           observer.disconnect();
-          setProgress(0);
-          const duration = 1500;
-          const start = Date.now();
-          const animate = () => {
-            const elapsed = Date.now() - start;
-            let p = Math.min(elapsed / duration, 1);
-            p = 1 - Math.pow(1 - p, 3);
-            setProgress(p);
-            if (p < 1) requestAnimationFrame(animate);
-          };
-          animate();
+          setIsVisible(true);
         }
       },
       { threshold: 0.1 }
@@ -518,7 +557,23 @@ export default function PieChart({
       observer.observe(containerRef.current);
     }
     return () => observer.disconnect();
-  }, [type]);
+  }, []);
+  useEffect(() => {
+    if (isVisible) {
+      setProgress(0);
+      const duration = 1500;
+      let startTime = null;
+      const animate = (timestamp) => {
+        if (startTime === null) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        let p = Math.min(elapsed / duration, 1);
+        p = 1 - Math.pow(1 - p, 3);
+        setProgress(p);
+        if (p < 1) requestAnimationFrame(animate);
+      };
+      requestAnimationFrame(animate);
+    }
+  }, [isVisible]);
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
@@ -558,7 +613,13 @@ export default function PieChart({
       borderRadiusBottomLeft || borderRadiusAll || 0
     }px`,
     boxShadow: `${boxShadowOffsetX}px ${boxShadowOffsetY}px ${boxShadowBlurRadius}px ${boxShadowSpreadRadius}px ${boxShadowColor}`,
-    background: effectiveBackground,
+    backgroundColor: fallbackColor,
+    ...(backgroundImage && { backgroundImage }),
+    ...(backgroundImageUrl && {
+      backgroundRepeat: getBackgroundRepeat(backgroundImageRepeat),
+      backgroundSize: getBackgroundSize(backgroundImageFit),
+      backgroundPosition: "center center",
+    }),
     overflow: "hidden",
     paddingTop: `${effectivePadding.top}px`,
     paddingRight: `${effectivePadding.right}px`,
@@ -568,7 +629,7 @@ export default function PieChart({
   return (
     <ErrorBoundary>
       <div className={containerClass} ref={containerRef} style={outerStyle}>
-        <div style={borderedContainerStyle} className={innerFlexClass}>
+        <div style={borderedContainerStyle} className={innerFlexClass} title={backgroundImageTitle} aria-label={backgroundImageAlt}>
           {isLegendFirst && showLegend && <Legend />}
           <svg
             width={chartWidth}
