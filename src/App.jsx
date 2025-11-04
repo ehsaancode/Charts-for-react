@@ -9,10 +9,10 @@ function App() {
 
   return (
     <>
+      <LineChart/>
       <ColumnChart/>
       <BarChartTest/>
       <PieChart/>
-      <LineChart/>
       <AreaChart/>
 
 

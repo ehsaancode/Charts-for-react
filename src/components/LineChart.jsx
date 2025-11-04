@@ -4,7 +4,7 @@ export default function LineChart({
   data = {
     title: "Product A",
     data: [
-      { x: 1, y: 100 },
+      { x: 1, y: 80 },
       { x: 2, y: 50 },
       { x: 3, y: 90 },
       { x: 4, y: 20 },
@@ -23,6 +23,12 @@ export default function LineChart({
   yMin = 0,
   yMax = 100,
   color = "#4A90E2", //graph line color
+
+    //in px, vw/vh, %
+    minWidth = "10px",
+    maxWidth = "100vw",
+    minHeight = "none",
+    maxHeight = "100%",
 
   showTitle = true, // toggle the title
   showTooltip = true,
@@ -125,6 +131,23 @@ export default function LineChart({
   const [isVisible, setIsVisible] = useState(false);
   const pathRef = useRef(null);
   const containerRef = useRef(null);
+
+  // Compute effective min/max to encompass data and avoid clipping/distortion
+  const dataXValues = data.data.map(d => d.x);
+  const dataYValues = data.data.map(d => d.y);
+  const dataXMin = Math.min(...dataXValues);
+  const dataXMax = Math.max(...dataXValues);
+  const dataYMin = Math.min(...dataYValues);
+  const dataYMax = Math.max(...dataYValues);
+
+  const effectiveXMin = Math.min(xMin, dataXMin);
+  const effectiveXMax = Math.max(xMax, dataXMax);
+  const effectiveYMin = Math.min(yMin, dataYMin);
+  const effectiveYMax = Math.max(yMax, dataYMax);
+
+  // Ensure range is valid to avoid division by zero
+  if (effectiveXMax === effectiveXMin) effectiveXMax = effectiveXMin + 1;
+  if (effectiveYMax === effectiveYMin) effectiveYMax = effectiveYMin + 1;
 
   //foreground
   const effectiveForegroundColor = foregroundColor || "#374151";
@@ -286,9 +309,9 @@ export default function LineChart({
   const padding = 60;
 
   const scaleX = (x) =>
-    ((x - xMin) / (xMax - xMin)) * (svgWidth - 2 * padding) + padding;
+    ((x - effectiveXMin) / (effectiveXMax - effectiveXMin)) * (svgWidth - 2 * padding) + padding;
   const scaleY = (y) =>
-    svgHeight - padding - ((y - yMin) / (yMax - yMin)) * (svgHeight - 2 * padding);
+    svgHeight - padding - ((y - effectiveYMin) / (effectiveYMax - effectiveYMin)) * (svgHeight - 2 * padding);
 
   const createSmoothPath = (points) => {
     if (points.length < 2) return "";
@@ -345,10 +368,16 @@ export default function LineChart({
   }, []);
 
   const xTicks = useMemo(
-    () => Array.from({ length: xMax - xMin + 1 }, (_, i) => xMin + i),
-    [xMin, xMax]
+    () => Array.from({ length: Math.floor(effectiveXMax - effectiveXMin) + 1 }, (_, i) => effectiveXMin + i),
+    [effectiveXMin, effectiveXMax]
   );
-  const yTicks = useMemo(() => [0, 20, 40, 60, 80, 100], []);
+
+  const numYTicks = 6;
+  const yStep = (effectiveYMax - effectiveYMin) / (numYTicks - 1);
+  const yTicks = useMemo(() => 
+    Array.from({ length: numYTicks }, (_, i) => Math.round(effectiveYMin + i * yStep)),
+    [effectiveYMin, effectiveYMax]
+  );
 
   // Add console logs to debug hover state
   const handleMouseEnter = (p) => {
@@ -388,9 +417,20 @@ export default function LineChart({
     marginLeft: `${effectiveMarginLeft}px`,
   };
 
+  const getSizedValue = (value) => {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'number') return `${value}px`;
+    // Preserve strings like "100%", "50vw", "auto", "none"
+    return value.toString();
+  };
+
   const borderedContainerStyle = {
-    width: `${width}px`,
-    height: `${height}px`,
+    width: getSizedValue(width),
+    height: getSizedValue(height),
+    minWidth: getSizedValue(minWidth),
+    maxWidth: getSizedValue(maxWidth),
+    minHeight: getSizedValue(minHeight),
+    maxHeight: getSizedValue(maxHeight),
     boxSizing: "border-box",
     borderTopWidth: `${effectiveBorderTop}px`,
     borderRightWidth: `${effectiveBorderRight}px`,

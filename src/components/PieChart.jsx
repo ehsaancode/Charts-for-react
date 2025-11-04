@@ -47,9 +47,9 @@ export default function PieChart({
       { label: "Test", value: 10 },
     ],
   },
-  type = "pie", //if the chart is ring or pie
+  type = "ring", //if the chart is ring or pie
   //overall size
-  width = "600px",
+  width = "550px",
   height = "400px",
   minWidth = "0px",
   maxWidth = "none",
@@ -590,7 +590,7 @@ export default function PieChart({
   const borderedContainerStyle = {
     width: containerWidthStyle,
     height: containerHeightStyle,
-    minWidth,
+    minWidth: minWidth !== null ? `${minWidth}px`: undefined ,
     maxWidth,
     minHeight,
     maxHeight,
