@@ -1,6 +1,8 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
 
-const AreaChart = ({
+import React, { useMemo, useState, useRef, useEffect } from "react";
+import PropTypes from "prop-types";
+
+const QAreaChart = ({
   data = {
     title: "Product B",
     data: [
@@ -24,39 +26,39 @@ const AreaChart = ({
   yMax = 100,
 
   //in px, vw/vh, %
-  minWidth = "10px",
-  maxWidth = "100vw",
+  minWidth,
+  maxWidth,
   minHeight = "none",
-  maxHeight = "100%",
+  maxHeight,
 
   color = "#4A90E2", //graph line color
   fillColor = "#d3e0ed",
 
   showLegend, //✅ toggle the title
-  showTooltip = true,
-  showMarkers = true, // toggle marker points
-  markerSize = 4, // marker point size in px
+  showTooltip,
+  showMarker, // toggle marker points
+  markerSize, // marker point size in px
 
   xAxisGridLines, //✅ show/hide grid in X axis
   yAxisGridLines, //✅ show/hide grid in Y axis
 
-  gridLineXWidth = "1",
-  gridLineYWidth = "1",
+  xAxisLineWidth = "1",
+  yAxisLineWidth = "1",
   gridLineXColor = "#808080",
   gridLineYColor = "#808080",
 
   //show and hide X and Y label
-  xAxisLabel, //✅
-  yAxisLabel, //✅
+  xAxisLabel = true, //✅
+  yAxisLabel = true, //✅
 
   //Border props for overall chart container
-  borderAll = 0,
-  borderTop = 0,
-  borderRight = 0,
-  borderBottom = 0,
-  borderLeft = 0,
-  borderColor = "#000000",
-  borderStyle = "solid", //none, solid, dashed, dotted
+  borderAll,
+  borderTop,
+  borderRight,
+  borderBottom,
+  borderLeft,
+  borderColor,
+  borderStyle, //none, solid, dashed, dotted
 
   //Border colors for each side
   borderTopColor,
@@ -65,35 +67,35 @@ const AreaChart = ({
   borderLeftColor,
   borderRadiusAll, //set radius for all the corners together
   //change each corner of the container
-  borderRadiusTopLeft = 10,
-  borderRadiusTopRight = 0,
-  borderRadiusBottomRight = 0,
-  borderRadiusBottomLeft = 0,
+  borderRadiusTopLeft,
+  borderRadiusTopRight,
+  borderRadiusBottomRight,
+  borderRadiusBottomLeft,
 
   //==Box Shadow props for overall chart container
   boxShadow, // full CSS string, e.g., "20px 20px 20px 10px rgba(184, 41, 126, 1.00)"
   boxShadowColor,
-  boxShadowOffsetX = 10,
-  boxShadowOffsetY = 10,
-  boxShadowBlurRadius = 50,
-  boxShadowSpreadRadius = 5,
+  boxShadowOffsetX,
+  boxShadowOffsetY,
+  boxShadowBlurRadius,
+  boxShadowSpreadRadius,
 
   // Text shadow for title and labels
   textShadow,
 
   //Padding props for inside the border
-  paddingAll = 20,
-  paddingTop = 0,
-  paddingRight = 0,
-  paddingBottom = 0,
-  paddingLeft = 0,
+  paddingAll,
+  paddingTop,
+  paddingRight,
+  paddingBottom,
+  paddingLeft,
 
   //Margin props for outside the border
-  marginAll = 20,
-  marginTop = 0,
-  marginRight = 0,
-  marginBottom = 50,
-  marginLeft = 0,
+  marginAll,
+  marginTop,
+  marginRight,
+  marginBottom,
+  marginLeft,
 
   //Background color or gradient (solid, linear-gradient, radial-gradient strings)
   bgColor,
@@ -108,11 +110,11 @@ const AreaChart = ({
   radialGradientStops,
 
   //======Background Image props
-  backgroundImageUrl,
-  backgroundImageFit,//none, cover, contain, fill, fit-height, fit-width
-  backgroundImageAlt = "test img",
-  backgroundImageTitle = "background image title",
-  backgroundImageRepeat = "repeat", //repeat X, repeat Y, repeat, none
+  bgUrl,
+  backgroundSize,//none, cover, contain, fill, fit-height, fit-width
+  seoAlt = "test img",
+  seoTitle = "background image title",
+  backgroundRepeat = "repeat", //repeat X, repeat Y, repeat, none
 
   //===Linear Gradient Foreground props
   useLinearGradientForeground = false,
@@ -131,11 +133,21 @@ const AreaChart = ({
   // chart alignment
   alignment = "auto", // left, center, right, stretch, baseline, auto
 
+  // Tailwind classes prop for custom styling
+  tailwindClasses = "", // Fixed spelling from 'tailwaindClasses'; apply to container for overrides
+
   // Additional props from usage
 }) => {
-  // Coerce string values to booleans for specified props
+  const useTailwind = !!tailwindClasses;
+
+  // Coerce string values to booleans for all toggle props
   const effectiveShowLegend = showLegend === "true" || showLegend === true;
   const effectiveShowTooltip = showTooltip === "true" || showTooltip === true;
+  const effectiveShowMarker = showMarker === "true" || showMarker === true;
+  const effectiveXAxisGridLines = xAxisGridLines === "true" || xAxisGridLines === true;
+  const effectiveYAxisGridLines = yAxisGridLines === "true" || yAxisGridLines === true;
+  const effectiveXAxisLabel = xAxisLabel === "true" || xAxisLabel === true;
+  const effectiveYAxisLabel = yAxisLabel === "true" || yAxisLabel === true;
 
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -194,8 +206,8 @@ const AreaChart = ({
     chartBgImage = fallbackBgImage;
   }
   // Handle background image URL (layer on top or alone)
-  if (backgroundImageUrl) {
-    const imgUrl = `url(${backgroundImageUrl})`;
+  if (bgUrl) {
+    const imgUrl = `url(${bgUrl})`;
     chartBgImage = chartBgImage ? `${imgUrl}, ${chartBgImage}` : imgUrl;
   }
 
@@ -261,8 +273,8 @@ const AreaChart = ({
       cover: "cover",
       contain: "contain",
       fill: "100% 100%",
-      "fit-height": "auto 100%",
-      "fit-width": "100% auto",
+      "fitHeight": "auto 100%",
+      "fitWidth": "100% auto",
     };
     return map[fit] || "auto";
   };
@@ -270,8 +282,8 @@ const AreaChart = ({
   const getBackgroundRepeat = (rep) => {
     const map = {
       none: "no-repeat",
-      "repeat X": "repeat-x",
-      "repeat Y": "repeat-y",
+      "repeatX": "repeat-x",
+      "repeatY": "repeat-y",
       repeat: "repeat",
     };
     return map[rep] || "no-repeat";
@@ -280,20 +292,21 @@ const AreaChart = ({
   if (!data || !data.data || data.data.length === 0)
     return <div className="text-red-500">No data</div>;
 
-  const effectiveBorderTop = borderTop || borderAll || 0;
-  const effectiveBorderRight = borderRight || borderAll || 0;
-  const effectiveBorderBottom = borderBottom || borderAll || 0;
-  const effectiveBorderLeft = borderLeft || borderAll || 0;
+  // Use 0 for borders/paddings when using Tailwind to avoid subtraction in sizing (since inline skipped)
+  const effectiveBorderTop = useTailwind ? 0 : (borderTop || borderAll || 0);
+  const effectiveBorderRight = useTailwind ? 0 : (borderRight || borderAll || 0);
+  const effectiveBorderBottom = useTailwind ? 0 : (borderBottom || borderAll || 0);
+  const effectiveBorderLeft = useTailwind ? 0 : (borderLeft || borderAll || 0);
 
-  const effectivePaddingTop = paddingTop || paddingAll || 0;
-  const effectivePaddingRight = paddingRight || paddingAll || 0;
-  const effectivePaddingBottom = paddingBottom || paddingAll || 0;
-  const effectivePaddingLeft = paddingLeft || paddingAll || 0;
+  const effectivePaddingTop = useTailwind ? 0 : (paddingTop || paddingAll || 0);
+  const effectivePaddingRight = useTailwind ? 0 : (paddingRight || paddingAll || 0);
+  const effectivePaddingBottom = useTailwind ? 0 : (paddingBottom || paddingAll || 0);
+  const effectivePaddingLeft = useTailwind ? 0 : (paddingLeft || paddingAll || 0);
 
-  const effectiveMarginTop = marginTop || marginAll || 0;
-  const effectiveMarginRight = marginRight || marginAll || 0;
-  const effectiveMarginBottom = marginBottom || marginAll || 0;
-  const effectiveMarginLeft = marginLeft || marginAll || 0;
+  const effectiveMarginTop = useTailwind ? 0 : (marginTop || marginAll || 0);
+  const effectiveMarginRight = useTailwind ? 0 : (marginRight || marginAll || 0);
+  const effectiveMarginBottom = useTailwind ? 0 : (marginBottom || marginAll || 0);
+  const effectiveMarginLeft = useTailwind ? 0 : (marginLeft || marginAll || 0);
 
   const totalBorderHorizontal = effectiveBorderLeft + effectiveBorderRight;
   const totalBorderVertical = effectiveBorderTop + effectiveBorderBottom;
@@ -426,7 +439,7 @@ const AreaChart = ({
 
   const outerItemsClass = getAlignItemsClass(alignment);
 
-  const marginStyle = {
+  const marginStyle = useTailwind ? {} : {
     marginTop: `${effectiveMarginTop}px`,
     marginRight: `${effectiveMarginRight}px`,
     marginBottom: `${effectiveMarginBottom}px`,
@@ -442,9 +455,20 @@ const AreaChart = ({
 
   // Effective box shadow: prioritize full string, fallback to constructed
   const effectiveBoxShadow = boxShadow ||
-    (boxShadowColor ? `${boxShadowOffsetX}px ${boxShadowOffsetY}px ${boxShadowBlurRadius}px ${boxShadowSpreadRadius}px ${boxShadowColor}` : undefined);
+    (boxShadowColor ? `${boxShadowOffsetX || 10}px ${boxShadowOffsetY || 10}px ${boxShadowBlurRadius || 50}px ${boxShadowSpreadRadius || 5}px ${boxShadowColor}` : undefined);
 
-  const borderedContainerStyle = {
+  // Conditional border radius styles: skip if tailwindClasses is provided to avoid conflicts with Tailwind arbitrary values
+  const radiusStyles = useTailwind 
+    ? {} 
+    : {
+        borderTopLeftRadius: `${borderRadiusTopLeft || borderRadiusAll || 0}px`,
+        borderTopRightRadius: `${borderRadiusTopRight || borderRadiusAll || 0}px`,
+        borderBottomRightRadius: `${borderRadiusBottomRight || borderRadiusAll || 0}px`,
+        borderBottomLeftRadius: `${borderRadiusBottomLeft || borderRadiusAll || 0}px`,
+      };
+
+  // Layout styles (sizing, borders, paddings, radii) - skip entirely when using Tailwind
+  const layoutStyles = useTailwind ? {} : {
     width: `${width}px`,
     height: `${height}px`,
     minWidth: getSizedValue(minWidth),
@@ -456,43 +480,57 @@ const AreaChart = ({
     borderRightWidth: `${effectiveBorderRight}px`,
     borderBottomWidth: `${effectiveBorderBottom}px`,
     borderLeftWidth: `${effectiveBorderLeft}px`,
-    borderTopColor: borderTopColor || borderColor,
-    borderRightColor: borderRightColor || borderColor,
-    borderBottomColor: borderBottomColor || borderColor,
-    borderLeftColor: borderLeftColor || borderColor,
-    borderStyle: borderStyle === "none" ? "none" : borderStyle,
-    ...(effectiveBoxShadow && { boxShadow: effectiveBoxShadow }),
-
-    borderTopLeftRadius: `${borderRadiusTopLeft || borderRadiusAll || 0}px`,
-    borderTopRightRadius: `${borderRadiusTopRight || borderRadiusAll || 0}px`,
-    borderBottomRightRadius: `${borderRadiusBottomRight || borderRadiusAll || 0}px`,
-    borderBottomLeftRadius: `${borderRadiusBottomLeft || borderRadiusAll || 0}px`,
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    borderTopColor: borderTopColor || borderColor || "#000000",
+    borderRightColor: borderRightColor || borderColor || "#000000",
+    borderBottomColor: borderBottomColor || borderColor || "#000000",
+    borderLeftColor: borderLeftColor || borderColor || "#000000",
+    borderStyle: borderStyle === "none" ? "none" : (borderStyle || "solid"),
     paddingTop: `${effectivePaddingTop}px`,
     paddingRight: `${effectivePaddingRight}px`,
     paddingBottom: `${effectivePaddingBottom}px`,
     paddingLeft: `${effectivePaddingLeft}px`,
+    ...radiusStyles,
+  };
+
+  const borderedContainerStyle = {
+    ...(effectiveBoxShadow && { boxShadow: effectiveBoxShadow }),
+    ...layoutStyles,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
     backgroundColor: chartBgColor,
     ...(chartBgImage && { backgroundImage: chartBgImage }),
-    ...(backgroundImageUrl && {
-      backgroundRepeat: getBackgroundRepeat(backgroundImageRepeat),
-      backgroundSize: getBackgroundSize(backgroundImageFit),
+    ...(bgUrl && {
+      backgroundRepeat: getBackgroundRepeat(backgroundRepeat),
+      backgroundSize: getBackgroundSize(backgroundSize),
       backgroundPosition: "center center",
     }),
   };
 
+  // SVG responsive handling: use viewBox for scaling when Tailwind is used
+  const isResponsive = useTailwind;
+  const svgAttrs = isResponsive ? {
+    width: "100%",
+    height: "100%",
+    viewBox: `0 0 ${svgWidth} ${svgHeight}`,
+  } : {
+    width: svgWidth,
+    height: svgHeight,
+  };
+
+  const outerClassName = `relative flex flex-col ${useTailwind ? "" : "mt-20"} ${outerItemsClass}`;
+
   return (
-    <div ref={containerRef} className={`relative flex flex-col mt-20 ${outerItemsClass}`}>
+    <div ref={containerRef} className={outerClassName}>
       <div style={marginStyle}>
         <div 
+          className={tailwindClasses}  // Apply Tailwind classes here for borders, radii, sizing, etc.
           style={borderedContainerStyle} 
-          title={backgroundImageTitle} 
-          aria-label={backgroundImageAlt}
+          title={seoTitle} 
+          aria-label={seoAlt}
         >
-          <svg width={svgWidth} height={svgHeight} className="">
+          <svg {...svgAttrs} className="">
             <defs>
               {useGradientForText && (
                 <>
@@ -563,7 +601,7 @@ const AreaChart = ({
             </defs>
             
             {/* Grid lines */}
-            {xAxisGridLines && xTicks.map((x) => (
+            {effectiveXAxisGridLines && xTicks.map((x) => (
               <line
                 key={`gx-${x}`}
                 x1={scaleX(x)}
@@ -571,10 +609,10 @@ const AreaChart = ({
                 x2={scaleX(x)}
                 y2={svgHeight - padding}
                 stroke={gridLineXColor}
-                strokeWidth={gridLineXWidth}
+                strokeWidth={xAxisLineWidth}
               />
             ))}
-            { yAxisGridLines && yTicks.map((y) => (
+            { effectiveYAxisGridLines && yTicks.map((y) => (
               <line
                 key={`gy-${y}`}
                 x1={padding}
@@ -582,7 +620,7 @@ const AreaChart = ({
                 x2={svgWidth - padding}
                 y2={scaleY(y)}
                 stroke={gridLineYColor}
-                strokeWidth={gridLineYWidth}
+                strokeWidth={yAxisLineWidth}
               />
             ))}
 
@@ -624,15 +662,15 @@ const AreaChart = ({
 
             {data.data.map((p, i) => (
               <g key={i}>
-                {(showMarkers || effectiveShowTooltip) && (
+                {(effectiveShowMarker || effectiveShowTooltip) && (
                   <circle
                     cx={scaleX(p.x)}
                     cy={scaleY(p.y)}
-                    r={showMarkers ? markerSize : 8}
-                    fill={showMarkers ? color : "transparent"}
-                    className={showMarkers ? "stroke-white cursor-pointer" : "cursor-pointer"}
-                    stroke={showMarkers ? "white" : "none"}
-                    strokeWidth={showMarkers ? 1.5 : 0}
+                    r={effectiveShowMarker ? markerSize : 8}
+                    fill={effectiveShowMarker ? color : "transparent"}
+                    className={effectiveShowMarker ? "stroke-white cursor-pointer" : "cursor-pointer"}
+                    stroke={effectiveShowMarker ? "white" : "none"}
+                    strokeWidth={effectiveShowMarker ? 1.5 : 0}
                     onMouseEnter={() => handleMouseEnter(p)}
                     onMouseLeave={handleMouseLeave}
                   />
@@ -676,7 +714,7 @@ const AreaChart = ({
             ))}
 
             {/* Axis labels */}
-            {xAxisLabel && xTicks.map((x) => (
+            {effectiveXAxisLabel && xTicks.map((x) => (
               <text
                 key={`tx-${x}`}
                 x={scaleX(x)}
@@ -689,7 +727,7 @@ const AreaChart = ({
                 {x}
               </text>
             ))}
-            {yAxisLabel && yTicks.map((y) => (
+            {effectiveYAxisLabel && yTicks.map((y) => (
               <text
                 key={`ty-${y}`}
                 x={padding - 10}
@@ -716,6 +754,101 @@ const AreaChart = ({
       </div>
     </div>
   );
-}
+};
 
-export default AreaChart;
+// PropTypes for type-checking
+QAreaChart.propTypes = {
+  data: PropTypes.shape({
+     title: PropTypes.string.isRequired,
+     data: PropTypes.arrayOf(
+     PropTypes.shape({
+     x: PropTypes.number.isRequired,
+     y: PropTypes.number.isRequired,
+   })
+ ).isRequired,
+}).isRequired,
+
+  width: PropTypes.number,
+  height: PropTypes.number,
+  xMin: PropTypes.number,
+  xMax: PropTypes.number,
+  yMin: PropTypes.number,
+  yMax: PropTypes.number,
+  minWidth: PropTypes.string,
+  maxWidth: PropTypes.string,
+  minHeight: PropTypes.string,
+  maxHeight: PropTypes.string,
+  color: PropTypes.string,
+  fillColor: PropTypes.string,
+  showLegend: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  showTooltip: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  showMarker: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  markerSize: PropTypes.oneOfType([PropTypes.number,PropTypes.string,]),
+  xAxisGridLines: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  yAxisGridLines: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  xAxisLineWidth: PropTypes.oneOfType([PropTypes.number,PropTypes.string,]),
+  yAxisLineWidth: PropTypes.oneOfType([PropTypes.number,PropTypes.string,]),
+  gridLineXColor: PropTypes.string,
+  gridLineYColor: PropTypes.string,
+  xAxisLabel: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  yAxisLabel: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  borderAll: PropTypes.number,
+  borderTop: PropTypes.number,
+  borderRight: PropTypes.number,
+  borderBottom: PropTypes.number,
+  borderLeft: PropTypes.number,
+  borderColor: PropTypes.string,
+  borderStyle: PropTypes.string,
+  borderTopColor: PropTypes.string,
+  borderRightColor: PropTypes.string,
+  borderBottomColor: PropTypes.string,
+  borderLeftColor: PropTypes.string,
+  borderRadiusAll: PropTypes.number,
+  borderRadiusTopLeft: PropTypes.number,
+  borderRadiusTopRight: PropTypes.number,
+  borderRadiusBottomRight: PropTypes.number,
+  borderRadiusBottomLeft: PropTypes.number,
+  boxShadow: PropTypes.string,
+  boxShadowColor: PropTypes.string,
+  boxShadowOffsetX: PropTypes.number,
+  boxShadowOffsetY: PropTypes.number,
+  boxShadowBlurRadius: PropTypes.number,
+  boxShadowSpreadRadius: PropTypes.number,
+  textShadow: PropTypes.string,
+  paddingAll: PropTypes.number,
+  paddingTop: PropTypes.number,
+  paddingRight: PropTypes.number,
+  paddingBottom: PropTypes.number,
+  paddingLeft: PropTypes.number,
+  marginAll: PropTypes.number,
+  marginTop: PropTypes.number,
+  marginRight: PropTypes.number,
+  marginBottom: PropTypes.number,
+  marginLeft: PropTypes.number,
+  bgColor: PropTypes.string,
+  useLinearGradient: PropTypes.bool,
+  gradientColors: PropTypes.arrayOf(PropTypes.string),
+  gradientAngle: PropTypes.number,
+  gradientStops: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradient: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  radialGradientColors: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStops: PropTypes.arrayOf(PropTypes.number),
+  bgUrl: PropTypes.string,
+  backgroundSize: PropTypes.string,
+  seoAlt: PropTypes.string,
+  seoTitle: PropTypes.string,
+  backgroundRepeat: PropTypes.string,
+  useLinearGradientForeground: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  gradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  gradientAngleForeground: PropTypes.number,
+  gradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradientForeground: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  radialGradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  foregroundColor: PropTypes.string,
+  alignment: PropTypes.string,
+  tailwindClasses: PropTypes.string,  // Added for custom Tailwind class support
+};
+
+export default QAreaChart;
+QAreaChart.displayName = "QAreaChart";

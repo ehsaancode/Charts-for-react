@@ -1,30 +1,40 @@
-
+import PropTypes from "prop-types";
 import React, { useMemo, useState, useRef, useEffect } from "react";
 
-export default function BarChart({
+const QLineChart = ({
   data = {
-    title: "Sales",
+    title: "Product A",
     data: [
-      { y: "January", x: 50 },
-      { y: "February", x: 54 },
-      { y: "March", x: 63 },
-      { y: "April", x: 71 },
-      { y: "May", x: 80 },
-      // { y: "June", x: 89 },
+      { x: 1, y: 80 },
+      { x: 2, y: 50 },
+      { x: 3, y: 90 },
+      { x: 4, y: 20 },
+      { x: 5, y: 40 },
+      { x: 6, y: 95 },
+      { x: 7, y: 30 },
+      { x: 8, y: 60 },
+      { x: 9, y: 10 },
+      { x: 10, y: 20 },
     ],
   },
   width = 560,
   height = 400,
-  xMin = 40,
-  xMax = 95,
+  xMin = 1,
+  xMax = 10,
+  yMin = 0,
+  yMax = 100,
+  color = "#4A90E2", //graph line color
 
-  minWidth = "",
-  maxWidth = "",
-  minHeight = "",
-  maxHeight = "",
+  //in px, vw/vh, %
+  minWidth = "10px",
+  maxWidth = "100vw",
+  minHeight = "none",
+  maxHeight = "100%",
 
   showTitle = true, // toggle the title
   showTooltip = true,
+  showMarkers = true, // toggle marker points
+  markerSize = 4, // marker point size in px
 
   showXGrid = true, // show/hide grid in X axis
   showYGrid = true, // show/hide grid in Y axis
@@ -52,9 +62,9 @@ export default function BarChart({
   borderRightColor = "",
   borderBottomColor = "",
   borderLeftColor = "",
-  borderRadiusAll = 20, //set radius for all the corners together
+  borderRadiusAll = 50, //set radius for all the corners together
   //change each corner of the container
-  borderRadiusTopLeft = 0,
+  borderRadiusTopLeft = 10,
   borderRadiusTopRight = 0,
   borderRadiusBottomRight = 0,
   borderRadiusBottomLeft = 0,
@@ -74,7 +84,7 @@ export default function BarChart({
   paddingLeft = 0,
 
   //Margin props for outside the border
-  marginAll = 10,
+  marginAll = 20,
   marginTop = 0,
   marginRight = 0,
   marginBottom = 50,
@@ -93,11 +103,11 @@ export default function BarChart({
   radialGradientStops = [10, 40, 90],
 
   //======Background Image props
-  backgroundImageUrl = "https://images.unsplash.com/photo-1665088587830-ca8529af39ca?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1074",
+  backgroundImageUrl = "https://plus.unsplash.com/premium_photo-1668708034279-ab8fa3a9e19b?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1170",
   backgroundImageFit = "cover", //none, cover, contain, fill, fit-height, fit-width
   backgroundImageAlt = "test img",
   backgroundImageTitle = "background image title",
-  backgroundImageRepeat = "repeat X", //repeat X, repeat Y, repeat, none
+  backgroundImageRepeat = "repeat", //repeat X, repeat Y, repeat, none
 
   //===Linear Gradient Foreground props
   useLinearGradientForeground = false,
@@ -115,16 +125,28 @@ export default function BarChart({
 
   // chart alignment
   alignment = "auto", // left, center, right, stretch, baseline, auto
-
-  legendBoxBackgroundColor = "white",
-  
-
-
-}) {
+}) => {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [animatedWidths, setAnimatedWidths] = useState(Array(data.data.length).fill(0));
+  const pathRef = useRef(null);
   const containerRef = useRef(null);
+
+  // Compute effective min/max to encompass data and avoid clipping/distortion
+  const dataXValues = data.data.map((d) => d.x);
+  const dataYValues = data.data.map((d) => d.y);
+  const dataXMin = Math.min(...dataXValues);
+  const dataXMax = Math.max(...dataXValues);
+  const dataYMin = Math.min(...dataYValues);
+  const dataYMax = Math.max(...dataYValues);
+
+  let effectiveXMin = Math.min(xMin, dataXMin);
+  let effectiveXMax = Math.max(xMax, dataXMax);
+  let effectiveYMin = Math.min(yMin, dataYMin);
+  let effectiveYMax = Math.max(yMax, dataYMax);
+
+  // Ensure range is valid to avoid division by zero
+  if (effectiveXMax === effectiveXMin) effectiveXMax = effectiveXMin + 1;
+  if (effectiveYMax === effectiveYMin) effectiveYMax = effectiveYMin + 1;
 
   //foreground
   const effectiveForegroundColor = foregroundColor || "#374151";
@@ -218,7 +240,9 @@ export default function BarChart({
 
   const fallbackBgImage = getFallbackBackgroundImage();
   const isFallbackGradient = fallbackBgImage !== null;
-  const fallbackColor = isFallbackGradient ? "transparent" : (backgroundColor || "transparent");
+  const fallbackColor = isFallbackGradient
+    ? "transparent"
+    : backgroundColor || "transparent";
 
   const getBackgroundSize = (fit) => {
     const map = {
@@ -277,32 +301,60 @@ export default function BarChart({
   const titleSpace = showTitle ? 40 : 0;
   const svgWidth = width - totalBorderHorizontal - totalPaddingHorizontal;
   const contentHeight = height - totalBorderVertical - totalPaddingVertical;
-  const svgHeight = contentHeight - titleSpace - 60; // Extra space for legend
-  
+  const svgHeight = contentHeight - titleSpace;
 
   if (svgWidth <= 0 || svgHeight <= 0)
     return <div className="text-red-500">Insufficient space</div>;
 
   const padding = 60;
 
-  const scaleX = (value) =>
-    ((value - xMin) / (xMax - xMin)) * (svgWidth - 2 * padding) + padding;
-  const scaleY = (i) =>
-    ((i + 0.5) / data.data.length) * (svgHeight - 2 * padding) + padding;
+  const scaleX = (x) =>
+    ((x - effectiveXMin) / (effectiveXMax - effectiveXMin)) *
+      (svgWidth - 2 * padding) +
+    padding;
+  const scaleY = (y) =>
+    svgHeight -
+    padding -
+    ((y - effectiveYMin) / (effectiveYMax - effectiveYMin)) *
+      (svgHeight - 2 * padding);
 
-  const numXTicks = 6;
-  const xStep = (xMax - xMin) / (numXTicks - 1);
-  const xTicks = useMemo(() => 
-    Array.from({ length: numXTicks }, (_, i) => Math.round(xMin + i * xStep)),
-    [xMin, xMax]
-  );
+  const createSmoothPath = (points) => {
+    if (points.length < 2) return "";
+    let d = `M ${scaleX(points[0].x)} ${scaleY(points[0].y)}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+      const cp1x = scaleX(p1.x + (p2.x - p0.x) / 6);
+      const cp1y = scaleY(p1.y + (p2.y - p0.y) / 6);
+      const cp2x = scaleX(p2.x - (p3.x - p1.x) / 6);
+      const cp2y = scaleY(p2.y - (p3.y - p1.y) / 6);
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${scaleX(p2.x)} ${scaleY(
+        p2.y
+      )}`;
+    }
+    return d;
+  };
 
-  const barHeight = (svgHeight - 2 * padding) / data.data.length - 10;
+  const pathD = createSmoothPath(data.data);
 
-  const fullWidths = useMemo(
-    () => data.data.map((d) => scaleX(d.x) - padding),
-    [data.data, xMin, xMax, svgWidth, padding]
-  );
+  useEffect(() => {
+    if (pathRef.current) {
+      const length = pathRef.current.getTotalLength();
+      pathRef.current.style.strokeDasharray = length;
+      pathRef.current.style.strokeDashoffset = length;
+    }
+  }, [pathD]);
+
+  useEffect(() => {
+    if (isVisible && pathRef.current) {
+      requestAnimationFrame(() => {
+        pathRef.current.style.transition = "stroke-dashoffset 2s ease-in-out";
+        pathRef.current.style.strokeDashoffset = "0";
+      });
+    }
+  }, [isVisible]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -320,30 +372,35 @@ export default function BarChart({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (isVisible) {
-      const animateBar = (index) => {
-        setAnimatedWidths((prev) => {
-          const newWidths = [...prev];
-          newWidths[index] = fullWidths[index];
-          return newWidths;
-        });
-      };
+  const xTicks = useMemo(
+    () =>
+      Array.from(
+        { length: Math.floor(effectiveXMax - effectiveXMin) + 1 },
+        (_, i) => effectiveXMin + i
+      ),
+    [effectiveXMin, effectiveXMax]
+  );
 
-      data.data.forEach((_, i) => {
-        setTimeout(() => animateBar(i), i * 150);
-      });
-    }
-  }, [isVisible, data.data, fullWidths]);
+  const numYTicks = 6;
+  const yStep = (effectiveYMax - effectiveYMin) / (numYTicks - 1);
+  const yTicks = useMemo(
+    () =>
+      Array.from({ length: numYTicks }, (_, i) =>
+        Math.round(effectiveYMin + i * yStep)
+      ),
+    [effectiveYMin, effectiveYMax]
+  );
 
-  const getColor = (value) => {
-    const intensity = (value - xMin) / (xMax - xMin);
-    const lightness = 85 - intensity * 25;
-    return `hsl(210, 100%, ${lightness}%)`;
+  // Add console logs to debug hover state
+  const handleMouseEnter = (p) => {
+    console.log("Mouse Enter:", p);
+    setHoveredPoint(p);
   };
 
-  const handleMouseEnter = (p) => setHoveredPoint(p);
-  const handleMouseLeave = () => setHoveredPoint(null);
+  const handleMouseLeave = () => {
+    console.log("Mouse Leave");
+    setHoveredPoint(null);
+  };
 
   const getAlignItemsClass = (align) => {
     switch (align) {
@@ -373,13 +430,15 @@ export default function BarChart({
   };
 
   const getSizedValue = (value) => {
-    if (value === undefined) return undefined;
-    return typeof value === 'number' ? `${value}px` : value;
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === "number") return `${value}px`;
+    // Preserve strings like "100%", "50vw", "auto", "none"
+    return value.toString();
   };
 
   const borderedContainerStyle = {
-    width: `${width}px`,
-    height: `${height}px`,
+    width: getSizedValue(width),
+    height: getSizedValue(height),
     minWidth: getSizedValue(minWidth),
     maxWidth: getSizedValue(maxWidth),
     minHeight: getSizedValue(minHeight),
@@ -398,8 +457,12 @@ export default function BarChart({
 
     borderTopLeftRadius: `${borderRadiusTopLeft || borderRadiusAll || 0}px`,
     borderTopRightRadius: `${borderRadiusTopRight || borderRadiusAll || 0}px`,
-    borderBottomRightRadius: `${borderRadiusBottomRight || borderRadiusAll || 0}px`,
-    borderBottomLeftRadius: `${borderRadiusBottomLeft || borderRadiusAll || 0}px`,
+    borderBottomRightRadius: `${
+      borderRadiusBottomRight || borderRadiusAll || 0
+    }px`,
+    borderBottomLeftRadius: `${
+      borderRadiusBottomLeft || borderRadiusAll || 0
+    }px`,
     overflow: "hidden",
     display: "flex",
     flexDirection: "column",
@@ -418,11 +481,14 @@ export default function BarChart({
   };
 
   return (
-    <div ref={containerRef} className={`relative flex flex-col mt-20 ${outerItemsClass}`}>
+    <div
+      ref={containerRef}
+      className={`relative flex flex-col mt-20 ${outerItemsClass}`}
+    >
       <div style={marginStyle}>
-        <div 
-          style={borderedContainerStyle} 
-          title={backgroundImageTitle} 
+        <div
+          style={borderedContainerStyle}
+          title={backgroundImageTitle}
           aria-label={backgroundImageAlt}
         >
           <svg width={svgWidth} height={svgHeight} className="">
@@ -485,32 +551,32 @@ export default function BarChart({
                 </>
               )}
             </defs>
-            
-            {/* X grid lines (vertical for values) */}
-            {showXGrid && xTicks.map((x) => (
-              <line
-                key={`gx-${x}`}
-                x1={scaleX(x)}
-                y1={padding}
-                x2={scaleX(x)}
-                y2={svgHeight - padding}
-                stroke={gridLineXColor}
-                strokeWidth={gridLineXWidth}
-              />
-            ))}
 
-            {/* Y grid lines (horizontal for categories) */}
-            {showYGrid && data.data.map((_, i) => (
-              <line
-                key={`gy-${i}`}
-                x1={padding}
-                y1={scaleY(i)}
-                x2={svgWidth - padding}
-                y2={scaleY(i)}
-                stroke={gridLineYColor}
-                strokeWidth={gridLineYWidth}
-              />
-            ))}
+            {/* Grid lines */}
+            {showXGrid &&
+              xTicks.map((x) => (
+                <line
+                  key={`gx-${x}`}
+                  x1={scaleX(x)}
+                  y1={padding}
+                  x2={scaleX(x)}
+                  y2={svgHeight - padding}
+                  stroke={gridLineXColor}
+                  strokeWidth={gridLineXWidth}
+                />
+              ))}
+            {showYGrid &&
+              yTicks.map((y) => (
+                <line
+                  key={`gy-${y}`}
+                  x1={padding}
+                  y1={scaleY(y)}
+                  x2={svgWidth - padding}
+                  y2={scaleY(y)}
+                  stroke={gridLineYColor}
+                  strokeWidth={gridLineYWidth}
+                />
+              ))}
 
             {/* Axes */}
             <line
@@ -528,118 +594,217 @@ export default function BarChart({
               className="stroke-black"
             />
 
-            {/* Bars */}
-            {data.data.map((p, i) => {
-              const yPos = scaleY(i);
-              const animatedWidth = animatedWidths[i];
-              const endX = padding + animatedWidth;
-              const color = getColor(p.x);
+            {/* Smooth line with animation */}
+            <path
+              ref={pathRef}
+              d={pathD}
+              fill="none"
+              stroke={color}
+              strokeWidth={4}
+              className="opacity-60"
+            />
 
-              return (
-                <g key={i}>
-                  <rect
-                    x={padding}
-                    y={yPos - barHeight / 2}
-                    width={animatedWidth}
-                    height={barHeight}
-                    fill={color}
-                    rx={5}
-                    style={{
-                      transition: 'width 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
-                    }}
-                    className="cursor-pointer opacity-80 transition-opacity hover:opacity-100"
+            {data.data.map((p, i) => (
+              <g key={i}>
+                {(showMarkers || showTooltip) && (
+                  <circle
+                    cx={scaleX(p.x)}
+                    cy={scaleY(p.y)}
+                    r={showMarkers ? markerSize : 8}
+                    fill={showMarkers ? color : "transparent"}
+                    className={
+                      showMarkers
+                        ? "stroke-white cursor-pointer"
+                        : "cursor-pointer"
+                    }
+                    stroke={showMarkers ? "white" : "none"}
+                    strokeWidth={showMarkers ? 1.5 : 0}
                     onMouseEnter={() => handleMouseEnter(p)}
                     onMouseLeave={handleMouseLeave}
                   />
+                )}
 
-                  {/* Tooltip */}
-                  {showTooltip && hoveredPoint?.y === p.y && (
+                {showTooltip &&
+                  hoveredPoint?.x === p.x &&
+                  hoveredPoint?.y === p.y && (
                     <g>
+                      {/* Tooltip background */}
                       <rect
-                        x={endX + 5}
-                        y={yPos - 55}
+                        x={scaleX(p.x) - 45}
+                        y={scaleY(p.y) - 50}
                         width={100}
                         height={40}
-                        rx={8}
                         fill="rgba(0,0,0,0.85)"
+                        rx={8}
                       />
+
+                      {/* Tooltip text */}
                       <text
-                        x={endX + 50}
-                        y={yPos - 40}
+                        x={scaleX(p.x) + 5}
+                        y={scaleY(p.y) - 35}
                         fill="white"
                         textAnchor="middle"
                         fontSize="12"
                       >
                         <tspan
-                          x={endX + 50}
+                          x={scaleX(p.x) + 5}
                           dy="0"
                           fontWeight="bold"
                           fontSize="13"
                         >
-                          {p.y}
+                          {data.title}
                         </tspan>
-                        <tspan x={endX + 50} dy="16" fontSize="12">
-                          {`Value: ${p.x}`}
+                        <tspan x={scaleX(p.x) + 5} dy="16" fontSize="12">
+                          {`x: ${p.x}, y: ${p.y}`}
                         </tspan>
                       </text>
                     </g>
                   )}
-                </g>
-              );
-            })}
-
-            {/* X labels */}
-            {showXlabel && xTicks.map((x) => (
-              <text
-                key={`tx-${x}`}
-                x={scaleX(x)}
-                y={svgHeight - padding + 20}
-                textAnchor="middle"
-                className="text-xs text-center"
-                fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
-              >
-                {x}
-              </text>
+              </g>
             ))}
 
-            {/* Y labels */}
-            {showYlabel && data.data.map((p, i) => (
-              <text
-                key={`ty-${p.y}`}
-                x={padding - 10}
-                y={scaleY(i) + 4}
-                textAnchor="end"
-                className="text-xs text-right"
-                fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
-              >
-                {p.y}
-              </text>
-            ))}
+            {/* Axis labels */}
+            {showXlabel &&
+              xTicks.map((x) => (
+                <text
+                  key={`tx-${x}`}
+                  x={scaleX(x)}
+                  y={svgHeight - padding + 20}
+                  className="text-xs text-center"
+                  textAnchor="middle"
+                  fill={
+                    useGradientForText
+                      ? "url(#fgGrad)"
+                      : effectiveForegroundColor
+                  }
+                >
+                  {x}
+                </text>
+              ))}
+            {showYlabel &&
+              yTicks.map((y) => (
+                <text
+                  key={`ty-${y}`}
+                  x={padding - 10}
+                  y={scaleY(y) + 4}
+                  className="text-xs text-right"
+                  textAnchor="end"
+                  fill={
+                    useGradientForText
+                      ? "url(#fgGrad)"
+                      : effectiveForegroundColor
+                  }
+                >
+                  {y.toFixed(1)}
+                </text>
+              ))}
           </svg>
-
           {showTitle && (
-            <div className="flex items-center justify-center mt-2 gap-2">
-              <span className="text-xs" style={titleTextStyle}>{data.title}</span>
+            <div className="flex items-center justify-center mt-4 gap-2">
+              <div
+                className="w-3 h-3 rounded-xs opacity-60"
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-xs" style={titleTextStyle}>
+                {data.title}
+              </span>
             </div>
           )}
-
-          {/* Legend */}
-          <div className="flex justify-center gap-4 rounded-2xl shadow-2xl shadow-black px-4 py-4 mt-4" style={{ backgroundColor: legendBoxBackgroundColor }}>
-            {data.data.map((p) => {
-              const color = getColor(p.x);
-              return (
-                <div key={p.y} className="flex items-center gap-2">
-                  <div
-                    className="w-3.5 h-3.5 rounded-sm opacity-70"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="text-[12px] text-gray-700" style={titleTextStyle}>{p.y}</span>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+// PropTypes for type-checking
+QLineChart.propTypes = {
+  data: PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    data: PropTypes.arrayOf(
+      PropTypes.shape({
+        x: PropTypes.number.isRequired,
+        y: PropTypes.number.isRequired,
+      })
+    ).isRequired,
+  }).isRequired,
+
+  width: PropTypes.string,
+  height: PropTypes.number,
+  xMin: PropTypes.number,
+  xMax: PropTypes.number,
+  yMin: PropTypes.number,
+  yMax: PropTypes.number,
+  color: PropTypes.string,
+  minWidth: PropTypes.string,
+  maxWidth: PropTypes.string,
+  minHeight: PropTypes.string,
+  maxHeight: PropTypes.string,
+  showTitle: PropTypes.bool,
+  showTooltip: PropTypes.bool,
+  showMarkers: PropTypes.bool,
+  markerSize: PropTypes.number,
+  showXGrid: PropTypes.bool,
+  showYGrid: PropTypes.bool,
+  gridLineXWidth: PropTypes.string,
+  gridLineYWidth: PropTypes.string,
+  gridLineXColor: PropTypes.string,
+  gridLineYColor: PropTypes.string,
+  showXlabel: PropTypes.bool,
+  showYlabel: PropTypes.bool,
+  borderAll: PropTypes.number,
+  borderTop: PropTypes.number,
+  borderRight: PropTypes.number,
+  borderBottom: PropTypes.number,
+  borderLeft: PropTypes.number,
+  borderColor: PropTypes.string,
+  borderStyle: PropTypes.string,
+  borderTopColor: PropTypes.string,
+  borderRightColor: PropTypes.string,
+  borderBottomColor: PropTypes.string,
+  borderLeftColor: PropTypes.string,
+  borderRadiusAll: PropTypes.number,
+  borderRadiusTopLeft: PropTypes.number,
+  borderRadiusTopRight: PropTypes.number,
+  borderRadiusBottomRight: PropTypes.number,
+  borderRadiusBottomLeft: PropTypes.number,
+  boxShadowColor: PropTypes.string,
+  boxShadowOffsetX: PropTypes.number,
+  boxShadowOffsetY: PropTypes.number,
+  boxShadowBlurRadius: PropTypes.number,
+  boxShadowSpreadRadius: PropTypes.number,
+  paddingAll: PropTypes.number,
+  paddingTop: PropTypes.number,
+  paddingRight: PropTypes.number,
+  paddingBottom: PropTypes.number,
+  paddingLeft: PropTypes.number,
+  marginAll: PropTypes.number,
+  marginTop: PropTypes.number,
+  marginRight: PropTypes.number,
+  marginBottom: PropTypes.number,
+  marginLeft: PropTypes.number,
+  backgroundColor: PropTypes.string,
+  useLinearGradient: PropTypes.bool,
+  gradientColors: PropTypes.arrayOf(PropTypes.string),
+  gradientAngle: PropTypes.number,
+  gradientStops: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradient: PropTypes.bool,
+  radialGradientColors: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStops: PropTypes.arrayOf(PropTypes.number),
+  backgroundImageUrl: PropTypes.string,
+  backgroundImageFit: PropTypes.string,
+  backgroundImageAlt: PropTypes.string,
+  backgroundImageTitle: PropTypes.string,
+  backgroundImageRepeat: PropTypes.string,
+  useLinearGradientForeground: PropTypes.bool,
+  gradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  gradientAngleForeground: PropTypes.number,
+  gradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradientForeground: PropTypes.bool,
+  radialGradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  foregroundColor: PropTypes.string,
+  alignment: PropTypes.string,
+};
+
+export default QLineChart;
+QLineChart.displayName = "QLineChart";

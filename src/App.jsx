@@ -13,7 +13,8 @@ function App() {
       <ColumnChart/>
       <BarChartTest/>
       <PieChart/>
-      <AreaChart/>
+      <AreaChart
+      />
 
 
     </>

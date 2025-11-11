@@ -1,7 +1,7 @@
-
+import PropTypes from "prop-types";
 import React, { useMemo, useState, useRef, useEffect } from "react";
 
-export default function BarChart({
+const QBarChart = ({
   data = {
     title: "Sales",
     data: [
@@ -18,10 +18,10 @@ export default function BarChart({
   xMin = 40,
   xMax = 95,
 
-  minWidth = "",
-  maxWidth = "",
-  minHeight = "",
-  maxHeight = "",
+  minWidth = undefined,
+  maxWidth = undefined,
+  minHeight = undefined,
+  maxHeight = undefined,
 
   showTitle = true, // toggle the title
   showTooltip = true,
@@ -120,7 +120,7 @@ export default function BarChart({
   
 
 
-}) {
+}) => {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [isVisible, setIsVisible] = useState(false);
   const [animatedWidths, setAnimatedWidths] = useState(Array(data.data.length).fill(0));
@@ -643,3 +643,93 @@ export default function BarChart({
     </div>
   );
 }
+
+// PropTypes for type-checking
+QBarChart.propTypes = {
+   
+data: PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    data: PropTypes.arrayOf(
+      PropTypes.shape({
+        y: PropTypes.string.isRequired,
+        x: PropTypes.number.isRequired,
+      })
+    ).isRequired,
+  }).isRequired,
+  
+  width: PropTypes.number,
+  height: PropTypes.number,
+  xMin: PropTypes.number,
+  xMax: PropTypes.number,
+  minWidth: PropTypes.string,
+  maxWidth: PropTypes.string,
+  minHeight: PropTypes.string,
+  maxHeight: PropTypes.string,
+  showTitle: PropTypes.bool,
+  showTooltip: PropTypes.bool,
+  showXGrid: PropTypes.bool,
+  showYGrid: PropTypes.bool,
+  gridLineXWidth: PropTypes.string,
+  gridLineYWidth: PropTypes.string,
+  gridLineXColor: PropTypes.string,
+  gridLineYColor: PropTypes.string,
+  showXlabel: PropTypes.bool,
+  showYlabel: PropTypes.bool,
+  borderAll: PropTypes.number,
+  borderTop: PropTypes.number,
+  borderRight: PropTypes.number,
+  borderBottom: PropTypes.number,
+  borderLeft: PropTypes.number,
+  borderColor: PropTypes.string,
+  borderStyle: PropTypes.string,
+  borderTopColor: PropTypes.string,
+  borderRightColor: PropTypes.string,
+  borderBottomColor: PropTypes.string,
+  borderLeftColor: PropTypes.string,
+  borderRadiusAll: PropTypes.number,
+  borderRadiusTopLeft: PropTypes.number,
+  borderRadiusTopRight: PropTypes.number,
+  borderRadiusBottomRight: PropTypes.number,
+  borderRadiusBottomLeft: PropTypes.number,
+  boxShadowColor: PropTypes.string,
+  boxShadowOffsetX: PropTypes.number,
+  boxShadowOffsetY: PropTypes.number,
+  boxShadowBlurRadius: PropTypes.number,
+  boxShadowSpreadRadius: PropTypes.number,
+  paddingAll: PropTypes.number,
+  paddingTop: PropTypes.number,
+  paddingRight: PropTypes.number,
+  paddingBottom: PropTypes.number,
+  paddingLeft: PropTypes.number,
+  marginAll: PropTypes.number,
+  marginTop: PropTypes.number,
+  marginRight: PropTypes.number,
+  marginBottom: PropTypes.number,
+  marginLeft: PropTypes.number,
+  backgroundColor: PropTypes.string,
+  useLinearGradient: PropTypes.bool,
+  gradientColors: PropTypes.arrayOf(PropTypes.string),
+  gradientAngle: PropTypes.number,
+  gradientStops: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradient: PropTypes.bool,
+  radialGradientColors: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStops: PropTypes.arrayOf(PropTypes.number),
+  backgroundImageUrl: PropTypes.string,
+  backgroundImageFit: PropTypes.string,
+  backgroundImageAlt: PropTypes.string,
+  backgroundImageTitle: PropTypes.string,
+  backgroundImageRepeat: PropTypes.string,
+  useLinearGradientForeground: PropTypes.bool,
+  gradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  gradientAngleForeground: PropTypes.number,
+  gradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradientForeground: PropTypes.bool,
+  radialGradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  foregroundColor: PropTypes.string,
+  alignment: PropTypes.string,
+  legendBoxBackgroundColor: PropTypes.string,
+}
+
+export default QBarChart;
+QBarChart.displayName = "QBarChart";

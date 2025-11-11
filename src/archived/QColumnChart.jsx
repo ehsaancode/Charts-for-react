@@ -1,27 +1,27 @@
+import PropTypes from "prop-types";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 
-import React, { useMemo, useState, useRef, useEffect } from "react";
-
-export default function BarChart({
+const QColumnChart = ({
   data = {
     title: "Sales",
     data: [
-      { y: "January", x: 50 },
-      { y: "February", x: 54 },
-      { y: "March", x: 63 },
-      { y: "April", x: 71 },
-      { y: "May", x: 80 },
-      // { y: "June", x: 89 },
+      { x: "January", y: 76 },
+      { x: "February", y: 82 },
+      { x: "March", y: 69 },
+      { x: "April", y: 58 },
+      { x: "May", y: 87 },
     ],
   },
   width = 560,
   height = 400,
-  xMin = 40,
-  xMax = 95,
+  yMin = 50,
+  yMax = 100,
 
-  minWidth = "",
-  maxWidth = "",
-  minHeight = "",
-  maxHeight = "",
+  //in px, vw/vh, %
+  minWidth = "10px",
+  maxWidth = "100vw",
+  minHeight = "none",
+  maxHeight = "100vh",
 
   showTitle = true, // toggle the title
   showTooltip = true,
@@ -52,9 +52,9 @@ export default function BarChart({
   borderRightColor = "",
   borderBottomColor = "",
   borderLeftColor = "",
-  borderRadiusAll = 20, //set radius for all the corners together
+  borderRadiusAll = 50, //set radius for all the corners together
   //change each corner of the container
-  borderRadiusTopLeft = 0,
+  borderRadiusTopLeft = 10,
   borderRadiusTopRight = 0,
   borderRadiusBottomRight = 0,
   borderRadiusBottomLeft = 0,
@@ -74,7 +74,7 @@ export default function BarChart({
   paddingLeft = 0,
 
   //Margin props for outside the border
-  marginAll = 10,
+  marginAll = 20,
   marginTop = 0,
   marginRight = 0,
   marginBottom = 50,
@@ -93,11 +93,11 @@ export default function BarChart({
   radialGradientStops = [10, 40, 90],
 
   //======Background Image props
-  backgroundImageUrl = "https://images.unsplash.com/photo-1665088587830-ca8529af39ca?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1074",
+  backgroundImageUrl = "https://images.unsplash.com/photo-1705447551093-7f1f038a313b?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1139",
   backgroundImageFit = "cover", //none, cover, contain, fill, fit-height, fit-width
   backgroundImageAlt = "test img",
   backgroundImageTitle = "background image title",
-  backgroundImageRepeat = "repeat X", //repeat X, repeat Y, repeat, none
+  backgroundImageRepeat = "repeat", //repeat X, repeat Y, repeat, none
 
   //===Linear Gradient Foreground props
   useLinearGradientForeground = false,
@@ -116,14 +116,17 @@ export default function BarChart({
   // chart alignment
   alignment = "auto", // left, center, right, stretch, baseline, auto
 
-  legendBoxBackgroundColor = "white",
-  
+  // Column specific
+  barSpacing = 16, // spacing between bars
+  barRadius = 5, // rx for bars
+  animationDelay = 150, // ms between bar animations
+  animationDuration = 0.6, // seconds for transition
 
-
-}) {
+  legendBoxBackgroundColor = "white"
+}) => {
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [animatedHeights, setAnimatedHeights] = useState(Array(data.data.length).fill(0));
   const [isVisible, setIsVisible] = useState(false);
-  const [animatedWidths, setAnimatedWidths] = useState(Array(data.data.length).fill(0));
   const containerRef = useRef(null);
 
   //foreground
@@ -275,34 +278,31 @@ export default function BarChart({
   const totalPaddingHorizontal = effectivePaddingLeft + effectivePaddingRight;
   const totalPaddingVertical = effectivePaddingTop + effectivePaddingBottom;
   const titleSpace = showTitle ? 40 : 0;
+  const legendSpace = 70; // Approximate space for legend
   const svgWidth = width - totalBorderHorizontal - totalPaddingHorizontal;
   const contentHeight = height - totalBorderVertical - totalPaddingVertical;
-  const svgHeight = contentHeight - titleSpace - 60; // Extra space for legend
-  
+  const svgHeight = contentHeight - titleSpace - legendSpace;
 
   if (svgWidth <= 0 || svgHeight <= 0)
     return <div className="text-red-500">Insufficient space</div>;
 
   const padding = 60;
 
-  const scaleX = (value) =>
-    ((value - xMin) / (xMax - xMin)) * (svgWidth - 2 * padding) + padding;
-  const scaleY = (i) =>
-    ((i + 0.5) / data.data.length) * (svgHeight - 2 * padding) + padding;
+  const scaleX = (i) =>
+    ((i + 1) / (data.data.length + 1)) * (svgWidth - 2 * padding) + padding / 2;
+  const scaleY = (y) =>
+    svgHeight - padding - ((y - yMin) / (yMax - yMin)) * (svgHeight - 2 * padding);
 
-  const numXTicks = 6;
-  const xStep = (xMax - xMin) / (numXTicks - 1);
-  const xTicks = useMemo(() => 
-    Array.from({ length: numXTicks }, (_, i) => Math.round(xMin + i * xStep)),
-    [xMin, xMax]
+  const numYTicks = 6;
+  const yStep = (yMax - yMin) / (numYTicks - 1);
+  const yTicks = useMemo(() => 
+    Array.from({ length: numYTicks }, (_, i) => Math.round(yMin + i * yStep)),
+    [yMin, yMax]
   );
 
-  const barHeight = (svgHeight - 2 * padding) / data.data.length - 10;
+  const barWidth = (svgWidth - 2 * padding) / data.data.length - barSpacing;
 
-  const fullWidths = useMemo(
-    () => data.data.map((d) => scaleX(d.x) - padding),
-    [data.data, xMin, xMax, svgWidth, padding]
-  );
+  const fullHeights = useMemo(() => data.data.map((d) => svgHeight - padding - scaleY(d.y)), [data.data, svgHeight, padding, yMin, yMax]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -323,21 +323,21 @@ export default function BarChart({
   useEffect(() => {
     if (isVisible) {
       const animateBar = (index) => {
-        setAnimatedWidths((prev) => {
-          const newWidths = [...prev];
-          newWidths[index] = fullWidths[index];
-          return newWidths;
+        setAnimatedHeights((prev) => {
+          const newHeights = [...prev];
+          newHeights[index] = fullHeights[index];
+          return newHeights;
         });
       };
 
       data.data.forEach((_, i) => {
-        setTimeout(() => animateBar(i), i * 150);
+        setTimeout(() => animateBar(i), i * animationDelay);
       });
     }
-  }, [isVisible, data.data, fullWidths]);
+  }, [isVisible, data.data, fullHeights, animationDelay]);
 
   const getColor = (value) => {
-    const intensity = (value - xMin) / (xMax - xMin);
+    const intensity = (value - yMin) / (yMax - yMin);
     const lightness = 85 - intensity * 25;
     return `hsl(210, 100%, ${lightness}%)`;
   };
@@ -373,13 +373,15 @@ export default function BarChart({
   };
 
   const getSizedValue = (value) => {
-    if (value === undefined) return undefined;
-    return typeof value === 'number' ? `${value}px` : value;
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'number') return `${value}px`;
+    // Preserve strings like "100%", "50vw", "auto", "none"
+    return value.toString();
   };
 
   const borderedContainerStyle = {
-    width: `${width}px`,
-    height: `${height}px`,
+    width: getSizedValue(width),
+    height: getSizedValue(height),
     minWidth: getSizedValue(minWidth),
     maxWidth: getSizedValue(maxWidth),
     minHeight: getSizedValue(minHeight),
@@ -417,6 +419,8 @@ export default function BarChart({
     }),
   };
 
+  const transitionStyle = `y ${animationDuration}s cubic-bezier(0.68, -0.55, 0.265, 1.55), height ${animationDuration}s cubic-bezier(0.68, -0.55, 0.265, 1.55)`;
+
   return (
     <div ref={containerRef} className={`relative flex flex-col mt-20 ${outerItemsClass}`}>
       <div style={marginStyle}>
@@ -425,7 +429,7 @@ export default function BarChart({
           title={backgroundImageTitle} 
           aria-label={backgroundImageAlt}
         >
-          <svg width={svgWidth} height={svgHeight} className="">
+          <svg width={svgWidth} height={svgHeight}>
             <defs>
               {useGradientForText && (
                 <>
@@ -486,29 +490,29 @@ export default function BarChart({
               )}
             </defs>
             
-            {/* X grid lines (vertical for values) */}
-            {showXGrid && xTicks.map((x) => (
+            {/* Y grid lines */}
+            {showYGrid && yTicks.map((y) => (
               <line
-                key={`gx-${x}`}
-                x1={scaleX(x)}
-                y1={padding}
-                x2={scaleX(x)}
-                y2={svgHeight - padding}
-                stroke={gridLineXColor}
-                strokeWidth={gridLineXWidth}
+                key={`gy-${y}`}
+                x1={padding}
+                y1={scaleY(y)}
+                x2={svgWidth - padding}
+                y2={scaleY(y)}
+                stroke={gridLineYColor}
+                strokeWidth={gridLineYWidth}
               />
             ))}
 
-            {/* Y grid lines (horizontal for categories) */}
-            {showYGrid && data.data.map((_, i) => (
+            {/* X grid lines */}
+            {showXGrid && data.data.map((_, i) => (
               <line
-                key={`gy-${i}`}
-                x1={padding}
-                y1={scaleY(i)}
-                x2={svgWidth - padding}
-                y2={scaleY(i)}
-                stroke={gridLineYColor}
-                strokeWidth={gridLineYWidth}
+                key={`gx-${i}`}
+                x1={scaleX(i)}
+                y1={padding}
+                x2={scaleX(i)}
+                y2={svgHeight - padding}
+                stroke={gridLineXColor}
+                strokeWidth={gridLineXWidth}
               />
             ))}
 
@@ -518,34 +522,35 @@ export default function BarChart({
               y1={svgHeight - padding}
               x2={svgWidth - padding}
               y2={svgHeight - padding}
-              className="stroke-black"
+              stroke="#000"
             />
             <line
               x1={padding}
               y1={padding}
               x2={padding}
               y2={svgHeight - padding}
-              className="stroke-black"
+              stroke="#000"
             />
 
             {/* Bars */}
             {data.data.map((p, i) => {
-              const yPos = scaleY(i);
-              const animatedWidth = animatedWidths[i];
-              const endX = padding + animatedWidth;
-              const color = getColor(p.x);
+              const xPos = scaleX(i);
+              const yPos = scaleY(p.y);
+              const animatedHeight = animatedHeights[i];
+              const barY = svgHeight - padding - animatedHeight;
+              const barColor = getColor(p.y);
 
               return (
                 <g key={i}>
                   <rect
-                    x={padding}
-                    y={yPos - barHeight / 2}
-                    width={animatedWidth}
-                    height={barHeight}
-                    fill={color}
-                    rx={5}
+                    x={xPos - barWidth / 2}
+                    y={barY}
+                    width={barWidth}
+                    height={animatedHeight}
+                    fill={barColor}
+                    rx={barRadius}
                     style={{
-                      transition: 'width 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
+                      transition: transitionStyle,
                     }}
                     className="cursor-pointer opacity-80 transition-opacity hover:opacity-100"
                     onMouseEnter={() => handleMouseEnter(p)}
@@ -553,10 +558,10 @@ export default function BarChart({
                   />
 
                   {/* Tooltip */}
-                  {showTooltip && hoveredPoint?.y === p.y && (
+                  {showTooltip && hoveredPoint?.x === p.x && (
                     <g>
                       <rect
-                        x={endX + 5}
+                        x={xPos - 45}
                         y={yPos - 55}
                         width={100}
                         height={40}
@@ -564,22 +569,22 @@ export default function BarChart({
                         fill="rgba(0,0,0,0.85)"
                       />
                       <text
-                        x={endX + 50}
+                        x={xPos + 5}
                         y={yPos - 40}
                         fill="white"
                         textAnchor="middle"
                         fontSize="12"
                       >
                         <tspan
-                          x={endX + 50}
+                          x={xPos + 5}
                           dy="0"
                           fontWeight="bold"
                           fontSize="13"
                         >
-                          {p.y}
+                          {p.x}
                         </tspan>
-                        <tspan x={endX + 50} dy="16" fontSize="12">
-                          {`Value: ${p.x}`}
+                        <tspan x={xPos + 5} dy="16" fontSize="12">
+                          {`Value: ${p.y}`}
                         </tspan>
                       </text>
                     </g>
@@ -589,57 +594,152 @@ export default function BarChart({
             })}
 
             {/* X labels */}
-            {showXlabel && xTicks.map((x) => (
+            {showXlabel && data.data.map((p, i) => (
               <text
-                key={`tx-${x}`}
-                x={scaleX(x)}
+                key={`tx-${p.x}`}
+                x={scaleX(i)}
                 y={svgHeight - padding + 20}
                 textAnchor="middle"
-                className="text-xs text-center"
                 fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
+                fontSize="11"
               >
-                {x}
+                {p.x}
               </text>
             ))}
 
             {/* Y labels */}
-            {showYlabel && data.data.map((p, i) => (
+            {showYlabel && yTicks.map((y) => (
               <text
-                key={`ty-${p.y}`}
+                key={`ty-${y}`}
                 x={padding - 10}
-                y={scaleY(i) + 4}
+                y={scaleY(y) + 4}
                 textAnchor="end"
-                className="text-xs text-right"
                 fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
+                fontSize="11"
               >
-                {p.y}
+                {y}
               </text>
             ))}
           </svg>
 
+          {/* Legend */}          
           {showTitle && (
-            <div className="flex items-center justify-center mt-2 gap-2">
+            <div className="flex items-center justify-center mt-4 gap-4">
               <span className="text-xs" style={titleTextStyle}>{data.title}</span>
             </div>
           )}
 
-          {/* Legend */}
           <div className="flex justify-center gap-4 rounded-2xl shadow-2xl shadow-black px-4 py-4 mt-4" style={{ backgroundColor: legendBoxBackgroundColor }}>
             {data.data.map((p) => {
-              const color = getColor(p.x);
+              const barColor = getColor(p.y);
               return (
-                <div key={p.y} className="flex items-center gap-2">
+                <div key={p.x} className="flex items-center gap-2">
                   <div
                     className="w-3.5 h-3.5 rounded-sm opacity-70"
-                    style={{ backgroundColor: color }}
+                    style={{ backgroundColor: barColor }}
                   />
-                  <span className="text-[12px] text-gray-700" style={titleTextStyle}>{p.y}</span>
+                  <span style={titleTextStyle} className="text-[12px]">{p.x}</span>
                 </div>
               );
             })}
           </div>
+
         </div>
       </div>
     </div>
   );
 }
+
+// PropTypes for type-checking
+QColumnChart.propTypes = {
+    
+    data: PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    data: PropTypes.arrayOf(
+      PropTypes.shape({
+        y: PropTypes.string.isRequired,
+        x: PropTypes.number.isRequired,
+      })
+    ).isRequired,
+  }).isRequired,
+
+  width: PropTypes.number,
+  height: PropTypes.number,
+  yMin: PropTypes.number,
+  yMax: PropTypes.number,
+  minWidth: PropTypes.string,
+  maxWidth: PropTypes.string,
+  minHeight: PropTypes.string,
+  maxHeight: PropTypes.string,
+  showTitle: PropTypes.bool,
+  showTooltip: PropTypes.bool,
+  showXGrid: PropTypes.bool,
+  showYGrid: PropTypes.bool,
+  gridLineXWidth: PropTypes.string,
+  gridLineYWidth: PropTypes.string,
+  gridLineXColor: PropTypes.string,
+  gridLineYColor: PropTypes.string,
+  showXlabel: PropTypes.bool,
+  showYlabel: PropTypes.bool,
+  borderAll: PropTypes.number,
+  borderTop: PropTypes.number,
+  borderRight: PropTypes.number,
+  borderBottom: PropTypes.number,
+  borderLeft: PropTypes.number,
+  borderColor: PropTypes.string,
+  borderStyle: PropTypes.string,
+  borderTopColor: PropTypes.string,
+  borderRightColor: PropTypes.string,
+  borderBottomColor: PropTypes.string,
+  borderLeftColor: PropTypes.string,
+  borderRadiusAll: PropTypes.number,
+  borderRadiusTopLeft: PropTypes.number,
+  borderRadiusTopRight: PropTypes.number,
+  borderRadiusBottomRight: PropTypes.number,
+  borderRadiusBottomLeft: PropTypes.number,
+  boxShadowColor: PropTypes.string,
+  boxShadowOffsetX: PropTypes.number,
+  boxShadowOffsetY: PropTypes.number,
+  boxShadowBlurRadius: PropTypes.number,
+  boxShadowSpreadRadius: PropTypes.number,
+  paddingAll: PropTypes.number,
+  paddingTop: PropTypes.number,
+  paddingRight: PropTypes.number,
+  paddingBottom: PropTypes.number,
+  paddingLeft: PropTypes.number,
+  marginAll: PropTypes.number,
+  marginTop: PropTypes.number,
+  marginRight: PropTypes.number,
+  marginBottom: PropTypes.number,
+  marginLeft: PropTypes.number,
+  backgroundColor: PropTypes.string,
+  useLinearGradient: PropTypes.bool,
+  gradientColors: PropTypes.arrayOf(PropTypes.string),
+  gradientAngle: PropTypes.number,
+  gradientStops: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradient: PropTypes.bool,
+  radialGradientColors: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStops: PropTypes.arrayOf(PropTypes.number),
+  backgroundImageUrl: PropTypes.string,
+  backgroundImageFit: PropTypes.string,
+  backgroundImageAlt: PropTypes.string,
+  backgroundImageTitle: PropTypes.string,
+  backgroundImageRepeat: PropTypes.string,
+  useLinearGradientForeground: PropTypes.bool,
+  gradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  gradientAngleForeground: PropTypes.number,
+  gradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  useRadialGradientForeground: PropTypes.bool,
+  radialGradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
+  radialGradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
+  foregroundColor: PropTypes.string,
+  alignment: PropTypes.string,
+  barSpacing: PropTypes.number,
+  barRadius: PropTypes.number,
+  animationDelay: PropTypes.number,
+  animationDuration: PropTypes.number,
+  legendBoxBackgroundColor: PropTypes.string,
+}
+
+export default QColumnChart;
+QColumnChart.displayName = "QColumnChart";
