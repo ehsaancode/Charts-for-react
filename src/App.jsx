@@ -12,7 +12,7 @@ function App() {
       <LineChart/>
       <ColumnChart/>
       <BarChartTest/>
-      <PieChart/>
+      <PieChart type="ring"/>
       <AreaChart
       />
 

@@ -683,8 +683,8 @@ const LineChart = ({
   data = {
     title: "Product A",
     data: [
-      { x: 1, y: 80 },
-      { x: 2, y: 50 },
+      { x: 1, y: 70 },
+      { x: 2, y: 90 },
       { x: 3, y: 90 },
       { x: 4, y: 20 },
       { x: 5, y: 40 },
