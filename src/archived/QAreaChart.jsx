@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import PropTypes from "prop-types";
 
@@ -131,7 +130,7 @@ const QAreaChart = ({
   foregroundColor = "",
 
   // chart alignment
-  alignment = "auto", // left, center, right, stretch, baseline, auto
+  childAlign, // left, center, right, stretch, baseline, auto
 
   // Tailwind classes prop for custom styling
   tailwindClasses = "", // Fixed spelling from 'tailwaindClasses'; apply to container for overrides
@@ -437,7 +436,7 @@ const QAreaChart = ({
     }
   };
 
-  const outerItemsClass = getAlignItemsClass(alignment);
+  const outerItemsClass = getAlignItemsClass(childAlign);
 
   const marginStyle = useTailwind ? {} : {
     marginTop: `${effectiveMarginTop}px`,
@@ -846,7 +845,7 @@ QAreaChart.propTypes = {
   radialGradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
   radialGradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
   foregroundColor: PropTypes.string,
-  alignment: PropTypes.string,
+  childAlign: PropTypes.string,
   tailwindClasses: PropTypes.string,  // Added for custom Tailwind class support
 };
 

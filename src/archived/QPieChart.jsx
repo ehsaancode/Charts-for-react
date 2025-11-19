@@ -1,4 +1,3 @@
-
 import PropTypes from "prop-types";
 import React, { useState, useEffect, useRef } from "react";
 class ErrorBoundary extends React.Component {
@@ -96,7 +95,7 @@ const QPieChart = ({
       { label: "Test", value: 10 },
     ],
   },
-  pieChartType = "pie", //if the chart is ring or pie
+  pieChartType, //if the chart is ring or pie
   //overall size
   width = "550px",
   height = "400px",
@@ -105,7 +104,7 @@ const QPieChart = ({
   minHeight = "100px",
   maxHeight = "none",
 
-  legendPosition = "Bottom", //set position to Left, Right, Top, Bottom
+  legendPosition = "Right", //set position to Left, Right, Top, Bottom
   showLegend, //hide legend
   childAlign, // left, center, right, stretch, baseline, auto
   legendTextColor = "#374151",

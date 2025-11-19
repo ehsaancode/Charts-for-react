@@ -1,6 +1,88 @@
 import PropTypes from "prop-types";
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 
+const parseLinearGradient = (gradientStr) => {
+  if (!gradientStr || !gradientStr.startsWith('linear-gradient')) return null;
+  const match = gradientStr.match(/^linear-gradient\s*\(\s*([^,]+)\s*,\s*(.+)\s*\)$/);
+  if (!match) return null;
+  let angle = 0;
+  const angleStr = match[1].trim();
+  const angleMatch = angleStr.match(/^([0-9.-]+)deg$/);
+  if (angleMatch) {
+    angle = parseFloat(angleMatch[1]);
+  }
+  let stopsStr = match[2].replace(/\)$/, '').trim();
+  // Match color stop pairs
+  const stopRegex = /((?:rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|[a-z]+)\s*(?:([0-9.-]+)%?)?)/g;
+  const stopMatches = [];
+  let m;
+  while ((m = stopRegex.exec(stopsStr)) !== null) {
+    stopMatches.push(m[0]);
+  }
+  if (stopMatches.length === 0) return null;
+  const colorStops = [];
+  stopMatches.forEach((part) => {
+    const percentMatch = part.match(/\s+([0-9.-]+)%?$/);
+    let offset = percentMatch ? parseFloat(percentMatch[1]) : null;
+    let color = part;
+    let index = -1;
+    if (percentMatch) {
+      index = percentMatch.index;
+      color = part.slice(0, index).trim();
+    }
+    if (offset === null || isNaN(offset)) {
+      // Evenly distribute if no explicit stop
+      offset = (colorStops.length / (stopMatches.length - 1)) * 100;
+    }
+    colorStops.push({ color: color.trim(), offset });
+  });
+  return { angle, colorStops };
+};
+
+const parseRadialGradient = (gradientStr) => {
+  if (!gradientStr || !gradientStr.startsWith('radial-gradient')) return null;
+  const match = gradientStr.match(/^radial-gradient\s*\(\s*([^,]+)\s*,\s*(.+)\s*\)$/);
+  if (!match) return null;
+  const shapeStr = match[1].trim(); //"circle at center"
+  let stopsStr = match[2].replace(/\)$/, '').trim();
+  // Match color stop pairs
+  const stopRegex = /((?:rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|[a-z]+)\s*(?:([0-9.-]+)%?)?)/g;
+  const stopMatches = [];
+  let m;
+  while ((m = stopRegex.exec(stopsStr)) !== null) {
+    stopMatches.push(m[0]);
+  }
+  if (stopMatches.length === 0) return null;
+  const colorStops = [];
+  stopMatches.forEach((part) => {
+    const percentMatch = part.match(/\s+([0-9.-]+)%?$/);
+    let offset = percentMatch ? parseFloat(percentMatch[1]) : null;
+    let color = part;
+    let index = -1;
+    if (percentMatch) {
+      index = percentMatch.index;
+      color = part.slice(0, index).trim();
+    }
+    if (offset === null || isNaN(offset)) {
+      // Evenly distribute if no explicit stop
+      offset = (colorStops.length / (stopMatches.length - 1)) * 100;
+    }
+    colorStops.push({ color: color.trim(), offset });
+  });
+  return { shape: shapeStr, colorStops };
+};
+
+const parseSize = (size) => {
+  if (typeof size === "number") return size;
+  const match = size.toString().match(/^([0-9.]+)(px|%|vw)?$/);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const unit = match[2];
+  if (isNaN(num)) return 0;
+  // % and vw need viewport info.
+  return num;
+};
+ 
 const QColumnChart = ({
   data = {
     title: "Sales",
@@ -17,20 +99,19 @@ const QColumnChart = ({
   yMin = 50,
   yMax = 100,
 
-  //in px, vw/vh, %
-  minWidth = "10px",
-  maxWidth = "100vw",
-  minHeight = "none",
-  maxHeight = "100vh",
+  minWidth = undefined,
+  maxWidth = undefined,
+  minHeight = undefined,
+  maxHeight = undefined,
 
-  showTitle = true, // toggle the title
+  showLegend,// toggle the legend
   showTooltip = true,
 
-  showXGrid = true, // show/hide grid in X axis
-  showYGrid = true, // show/hide grid in Y axis
+  xAxisGridLines = true, // show/hide grid in X axis
+  yAxisGridLines = true, // show/hide grid in Y axis
 
-  gridLineXWidth = "1",
-  gridLineYWidth = "1",
+  xAxisLineWidth = "1", 
+  yAxisLineWidth = "1",
   gridLineXColor = "#00FFFF",
   gridLineYColor = "#808080",
 
@@ -48,23 +129,19 @@ const QColumnChart = ({
   borderStyle = "solid", //none, solid, dashed, dotted
 
   //Border colors for each side
-  borderTopColor = "red",
+  borderTopColor = "",
   borderRightColor = "",
   borderBottomColor = "",
   borderLeftColor = "",
-  borderRadiusAll = 50, //set radius for all the corners together
+  borderRadiusAll = 20, //set radius for all the corners together
   //change each corner of the container
-  borderRadiusTopLeft = 10,
+  borderRadiusTopLeft = 0,
   borderRadiusTopRight = 0,
   borderRadiusBottomRight = 0,
   borderRadiusBottomLeft = 0,
 
-  //==Box Shadow props for overall chart container
-  boxShadowColor = "cyan",
-  boxShadowOffsetX = 10,
-  boxShadowOffsetY = 10,
-  boxShadowBlurRadius = 50,
-  boxShadowSpreadRadius = 5,
+  //Box Shadow props for overall chart container
+  boxShadow = "",
 
   //Padding props for inside the border
   paddingAll = 20,
@@ -74,30 +151,21 @@ const QColumnChart = ({
   paddingLeft = 0,
 
   //Margin props for outside the border
-  marginAll = 20,
+  marginAll = 10,
   marginTop = 0,
   marginRight = 0,
   marginBottom = 50,
   marginLeft = 0,
 
   //Background color inside the border
-  backgroundColor = "#FFFFFF",
-  //============Linear Gradient Background props
-  useLinearGradient = true,
-  gradientColors = ["pink", "white"],
-  gradientAngle = 35,
-  gradientStops = [20, 90],
-  //=====Radial Gradient Background props
-  useRadialGradient = false,
-  radialGradientColors = ["pink", "pink", "white"],
-  radialGradientStops = [10, 40, 90],
+  bgColor = "#ffffff",
 
   //======Background Image props
-  backgroundImageUrl = "https://images.unsplash.com/photo-1705447551093-7f1f038a313b?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1139",
+  bgUrl,
   backgroundImageFit = "cover", //none, cover, contain, fill, fit-height, fit-width
-  backgroundImageAlt = "test img",
-  backgroundImageTitle = "background image title",
-  backgroundImageRepeat = "repeat", //repeat X, repeat Y, repeat, none
+  seoAlt = "img",
+  seoTitle = "background image legend",
+  backgroundImageRepeat = "repeat X", //repeat X, repeat Y, repeat, none
 
   //===Linear Gradient Foreground props
   useLinearGradientForeground = false,
@@ -111,31 +179,49 @@ const QColumnChart = ({
   radialGradientStopsForeground = [0, 50, 100],
 
   //single foreground color
-  foregroundColor = "",
+  foreground = "",
 
   // chart alignment
-  alignment = "auto", // left, center, right, stretch, baseline, auto
+  childAlign, // left, center, right, stretch, baseline, auto
+
+  legendBoxBackgroundColor = "white",
+
+  tailwindClasses = "",
 
   // Column specific
   barSpacing = 16, // spacing between bars
   barRadius = 5, // rx for bars
   animationDelay = 150, // ms between bar animations
   animationDuration = 0.6, // seconds for transition
-
-  legendBoxBackgroundColor = "white"
 }) => {
+  const useTailwind = !!tailwindClasses;
+
+  // Coerce string values to booleans for toggle props
+  const effectiveShowLegend = showLegend === "true" || showLegend === true;
+  const effectiveShowTooltip = showTooltip === "true" || showTooltip === true;
+  const effectiveShowXGrid = xAxisGridLines === "true" || xAxisGridLines === true;
+  const effectiveShowYGrid = yAxisGridLines === "true" || yAxisGridLines === true;
+  const effectiveShowXlabel = showXlabel === "true" || showXlabel === true;
+  const effectiveShowYlabel = showYlabel === "true" || showYlabel === true;
+  const effectiveUseLinearGradientForeground = useLinearGradientForeground === "true" || useLinearGradientForeground === true;
+  const effectiveUseRadialGradientForeground = useRadialGradientForeground === "true" || useRadialGradientForeground === true;
+
   const [hoveredPoint, setHoveredPoint] = useState(null);
-  const [animatedHeights, setAnimatedHeights] = useState(Array(data.data.length).fill(0));
   const [isVisible, setIsVisible] = useState(false);
+  const [animatedHeights, setAnimatedHeights] = useState(Array(data.data.length).fill(0));
   const containerRef = useRef(null);
 
   //foreground
-  const effectiveForegroundColor = foregroundColor || "#374151";
+  const effectiveForegroundColor = foreground || "#374151";
+  const isForegroundGradient = typeof foreground === 'string' && (foreground.startsWith('linear-gradient(') || foreground.startsWith('radial-gradient('));
   const useGradientForText =
-    useLinearGradientForeground || useRadialGradientForeground;
+    effectiveUseLinearGradientForeground || effectiveUseRadialGradientForeground || isForegroundGradient;
   const getForegroundGradientCSS = () => {
+    if (isForegroundGradient) {
+      return foreground;
+    }
     if (
-      useRadialGradientForeground &&
+      effectiveUseRadialGradientForeground &&
       radialGradientColorsForeground &&
       radialGradientColorsForeground.length > 0
     ) {
@@ -155,7 +241,7 @@ const QColumnChart = ({
         .join(", ");
       return `radial-gradient(circle at center, ${colorStops})`;
     } else if (
-      useLinearGradientForeground &&
+      effectiveUseLinearGradientForeground &&
       gradientColorsForeground &&
       gradientColorsForeground.length > 0
     ) {
@@ -184,45 +270,6 @@ const QColumnChart = ({
     }),
   };
 
-  const getFallbackBackgroundImage = () => {
-    if (
-      useRadialGradient &&
-      radialGradientColors &&
-      radialGradientColors.length > 0
-    ) {
-      const stops =
-        radialGradientStops.length === radialGradientColors.length
-          ? radialGradientStops
-          : Array.from({ length: radialGradientColors.length }, (_, i) =>
-              Math.round((i / (radialGradientColors.length - 1)) * 100)
-            );
-      const colorStops = radialGradientColors
-        .map((color, i) => `${color} ${stops[i]}%`)
-        .join(", ");
-      return `radial-gradient(circle at center, ${colorStops})`;
-    } else if (
-      useLinearGradient &&
-      gradientColors &&
-      gradientColors.length > 0
-    ) {
-      const stops =
-        gradientStops.length === gradientColors.length
-          ? gradientStops
-          : Array.from({ length: gradientColors.length }, (_, i) =>
-              Math.round((i / (gradientColors.length - 1)) * 100)
-            );
-      const colorStops = gradientColors
-        .map((color, i) => `${color} ${stops[i]}%`)
-        .join(", ");
-      return `linear-gradient(${gradientAngle}deg, ${colorStops})`;
-    }
-    return null;
-  };
-
-  const fallbackBgImage = getFallbackBackgroundImage();
-  const isFallbackGradient = fallbackBgImage !== null;
-  const fallbackColor = isFallbackGradient ? "transparent" : (backgroundColor || "transparent");
-
   const getBackgroundSize = (fit) => {
     const map = {
       none: "auto",
@@ -245,43 +292,71 @@ const QColumnChart = ({
     return map[rep] || "no-repeat";
   };
 
-  let backgroundImage = "";
-  if (backgroundImageUrl) {
-    backgroundImage = `url(${backgroundImageUrl})`;
-    if (fallbackBgImage) {
-      backgroundImage += `, ${fallbackBgImage}`;
+  const effectiveBgColor = bgColor || "#ffffff";
+  const isGradient = effectiveBgColor.startsWith('linear-gradient(') || effectiveBgColor.startsWith('radial-gradient(');
+  let bgStyle = {};
+  if (isGradient) {
+    let bgImage = effectiveBgColor;
+    if (bgUrl) {
+      bgImage = `url(${bgUrl}), ${effectiveBgColor}`;
     }
-  } else if (fallbackBgImage) {
-    backgroundImage = fallbackBgImage;
+    bgStyle = {
+      backgroundImage: bgImage,
+      backgroundColor: 'transparent',
+      ...(bgUrl && {
+        backgroundRepeat: getBackgroundRepeat(backgroundImageRepeat),
+        backgroundSize: getBackgroundSize(backgroundImageFit),
+        backgroundPosition: "center center",
+      }),
+    };
+  } else {
+    bgStyle = {
+      backgroundColor: effectiveBgColor,
+    };
+    if (bgUrl) {
+      bgStyle.backgroundImage = `url(${bgUrl})`;
+      bgStyle.backgroundRepeat = getBackgroundRepeat(backgroundImageRepeat);
+      bgStyle.backgroundSize = getBackgroundSize(backgroundImageFit);
+      bgStyle.backgroundPosition= "center center"
+    }
   }
 
   if (!data || !data.data || data.data.length === 0)
     return <div className="text-red-500">No data</div>;
 
-  const effectiveBorderTop = borderTop || borderAll || 0;
-  const effectiveBorderRight = borderRight || borderAll || 0;
-  const effectiveBorderBottom = borderBottom || borderAll || 0;
-  const effectiveBorderLeft = borderLeft || borderAll || 0;
+  const effectiveBorderTop = useTailwind ? 0 : (borderTop || borderAll || 0);
+  const effectiveBorderRight = useTailwind ? 0 : (borderRight || borderAll || 0);
+  const effectiveBorderBottom = useTailwind ? 0 : (borderBottom || borderAll || 0);
+  const effectiveBorderLeft = useTailwind ? 0 : (borderLeft || borderAll || 0);
 
-  const effectivePaddingTop = paddingTop || paddingAll || 0;
-  const effectivePaddingRight = paddingRight || paddingAll || 0;
-  const effectivePaddingBottom = paddingBottom || paddingAll || 0;
-  const effectivePaddingLeft = paddingLeft || paddingAll || 0;
+  let effectivePaddingTop = useTailwind ? 0 : (paddingTop || paddingAll || 0);
+  let effectivePaddingRight = useTailwind ? 0 : (paddingRight || paddingAll || 0);
+  let effectivePaddingBottom = useTailwind ? 0 : (paddingBottom || paddingAll || 0);
+  let effectivePaddingLeft = useTailwind ? 0 : (paddingLeft || paddingAll || 0);
 
-  const effectiveMarginTop = marginTop || marginAll || 0;
-  const effectiveMarginRight = marginRight || marginAll || 0;
-  const effectiveMarginBottom = marginBottom || marginAll || 0;
-  const effectiveMarginLeft = marginLeft || marginAll || 0;
+  // Adjust padding to at least match border thickness to prevent overlap
+  effectivePaddingTop = Math.max(effectivePaddingTop, effectiveBorderTop);
+  effectivePaddingRight = Math.max(effectivePaddingRight, effectiveBorderRight);
+  effectivePaddingBottom = Math.max(effectivePaddingBottom, effectiveBorderBottom);
+  effectivePaddingLeft = Math.max(effectivePaddingLeft, effectiveBorderLeft);
+
+  const effectiveMarginTop = useTailwind ? 0 : (marginTop || marginAll || 0);
+  const effectiveMarginRight = useTailwind ? 0 : (marginRight || marginAll || 0);
+  const effectiveMarginBottom = useTailwind ? 0 : (marginBottom || marginAll || 0);
+  const effectiveMarginLeft = useTailwind ? 0 : (marginLeft || marginAll || 0);
 
   const totalBorderHorizontal = effectiveBorderLeft + effectiveBorderRight;
   const totalBorderVertical = effectiveBorderTop + effectiveBorderBottom;
   const totalPaddingHorizontal = effectivePaddingLeft + effectivePaddingRight;
   const totalPaddingVertical = effectivePaddingTop + effectivePaddingBottom;
-  const titleSpace = showTitle ? 40 : 0;
-  const legendSpace = 70; // Approximate space for legend
-  const svgWidth = width - totalBorderHorizontal - totalPaddingHorizontal;
-  const contentHeight = height - totalBorderVertical - totalPaddingVertical;
-  const svgHeight = contentHeight - titleSpace - legendSpace;
+  const titleSpace = 0;
+  const legendSpace = effectiveShowLegend ? 80 : 0;
+  const totalWidth = parseSize(width);
+  const totalHeight = parseSize(height);
+  const svgWidth = Math.max(0, totalWidth - totalBorderHorizontal - totalPaddingHorizontal);
+  const contentHeight = Math.max(0, totalHeight - totalBorderVertical - totalPaddingVertical);
+  const svgHeight = Math.max(0, contentHeight - titleSpace - legendSpace);
+  
 
   if (svgWidth <= 0 || svgHeight <= 0)
     return <div className="text-red-500">Insufficient space</div>;
@@ -363,9 +438,9 @@ const QColumnChart = ({
     }
   };
 
-  const outerItemsClass = getAlignItemsClass(alignment);
+  const outerItemsClass = getAlignItemsClass(childAlign);
 
-  const marginStyle = {
+  const marginStyle = useTailwind ? {} : {
     marginTop: `${effectiveMarginTop}px`,
     marginRight: `${effectiveMarginRight}px`,
     marginBottom: `${effectiveMarginBottom}px`,
@@ -379,9 +454,13 @@ const QColumnChart = ({
     return value.toString();
   };
 
-  const borderedContainerStyle = {
-    width: getSizedValue(width),
-    height: getSizedValue(height),
+  const containerWidthStyle = typeof width === "string" ? width : `${totalWidth}px`;
+  const containerHeightStyle = typeof height === "string" ? height : `${totalHeight}px`;
+
+  // Layout styles (sizing, borders, paddings, radii) - skip entirely when using Tailwind
+  const layoutStyles = useTailwind ? {} : {
+    width: containerWidthStyle,
+    height: containerHeightStyle,
     minWidth: getSizedValue(minWidth),
     maxWidth: getSizedValue(maxWidth),
     minHeight: getSizedValue(minHeight),
@@ -396,44 +475,110 @@ const QColumnChart = ({
     borderBottomColor: borderBottomColor || borderColor,
     borderLeftColor: borderLeftColor || borderColor,
     borderStyle: borderStyle === "none" ? "none" : borderStyle,
-    boxShadow: `${boxShadowOffsetX}px ${boxShadowOffsetY}px ${boxShadowBlurRadius}px ${boxShadowSpreadRadius}px ${boxShadowColor}`,
-
     borderTopLeftRadius: `${borderRadiusTopLeft || borderRadiusAll || 0}px`,
     borderTopRightRadius: `${borderRadiusTopRight || borderRadiusAll || 0}px`,
     borderBottomRightRadius: `${borderRadiusBottomRight || borderRadiusAll || 0}px`,
     borderBottomLeftRadius: `${borderRadiusBottomLeft || borderRadiusAll || 0}px`,
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
     paddingTop: `${effectivePaddingTop}px`,
     paddingRight: `${effectivePaddingRight}px`,
     paddingBottom: `${effectivePaddingBottom}px`,
     paddingLeft: `${effectivePaddingLeft}px`,
-    backgroundColor: fallbackColor,
-    ...(backgroundImage && { backgroundImage }),
-    ...(backgroundImageUrl && {
-      backgroundRepeat: getBackgroundRepeat(backgroundImageRepeat),
-      backgroundSize: getBackgroundSize(backgroundImageFit),
-      backgroundPosition: "center center",
-    }),
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
   };
+
+  const effectiveBoxShadow = boxShadow || undefined;
+
+  const borderedContainerStyle = {
+    ...layoutStyles,
+    position: "relative",
+    ...(effectiveBoxShadow && { boxShadow: effectiveBoxShadow }),
+    ...bgStyle,
+    overflow: "hidden",
+  };
+
+  // SVG responsive handling: use viewBox for scaling when Tailwind is used
+  const isResponsive = useTailwind;
+  const svgAttrs = isResponsive
+    ? {
+        viewBox: `0 0 ${svgWidth} ${svgHeight}`,
+      }
+    : {
+        width: svgWidth,
+        height: svgHeight,
+      };
+  const svgStyle = isResponsive ? { width: "100%", height: "auto" } : {};
+  const svgClassName = "";
+
+  const innerClassName = tailwindClasses;
 
   const transitionStyle = `y ${animationDuration}s cubic-bezier(0.68, -0.55, 0.265, 1.55), height ${animationDuration}s cubic-bezier(0.68, -0.55, 0.265, 1.55)`;
 
   return (
-    <div ref={containerRef} className={`relative flex flex-col mt-20 ${outerItemsClass}`}>
+    <div ref={containerRef} className={`flex flex-col ${outerItemsClass}`}>
       <div style={marginStyle}>
         <div 
           style={borderedContainerStyle} 
-          title={backgroundImageTitle} 
-          aria-label={backgroundImageAlt}
+          className={innerClassName}
+          title={seoTitle} 
+          aria-label={seoAlt}
         >
-          <svg width={svgWidth} height={svgHeight}>
+          <svg
+            className={svgClassName}
+            {...svgAttrs}
+            style={svgStyle}
+          >
             <defs>
               {useGradientForText && (
                 <>
-                  {useRadialGradientForeground ? (
+                  {isForegroundGradient ? (
+                    (() => {
+                      const parsed = foreground.startsWith('linear-gradient')
+                        ? parseLinearGradient(foreground)
+                        : parseRadialGradient(foreground);
+                      if (!parsed) return null;
+                      if (parsed.angle !== undefined) { // Linear
+                        return (
+                          <linearGradient
+                            id="fgGrad"
+                            x1="0"
+                            y1="0"
+                            x2="1"
+                            y2="0"
+                            gradientUnits="objectBoundingBox"
+                            gradientTransform={`rotate(${parsed.angle}, 0.5, 0.5)`}
+                          >
+                            {parsed.colorStops.map((stop, i) => (
+                              <stop
+                                key={i}
+                                offset={`${stop.offset}%`}
+                                stopColor={stop.color}
+                              />
+                            ))}
+                          </linearGradient>
+                        );
+                      } else { // Radial
+                        return (
+                          <radialGradient
+                            id="fgGrad"
+                            cx="0.5"
+                            cy="0.5"
+                            r="0.5"
+                            gradientUnits="objectBoundingBox"
+                          >
+                            {parsed.colorStops.map((stop, i) => (
+                              <stop
+                                key={i}
+                                offset={`${stop.offset}%`}
+                                stopColor={stop.color}
+                              />
+                            ))}
+                          </radialGradient>
+                        );
+                      }
+                    })()
+                  ) : effectiveUseRadialGradientForeground ? (
                     <radialGradient
                       id="fgGrad"
                       cx="0.5"
@@ -490,8 +635,8 @@ const QColumnChart = ({
               )}
             </defs>
             
-            {/* Y grid lines */}
-            {showYGrid && yTicks.map((y) => (
+            {/* Y grid lines (horizontal for values) */}
+            {effectiveShowYGrid && yTicks.map((y) => (
               <line
                 key={`gy-${y}`}
                 x1={padding}
@@ -499,12 +644,12 @@ const QColumnChart = ({
                 x2={svgWidth - padding}
                 y2={scaleY(y)}
                 stroke={gridLineYColor}
-                strokeWidth={gridLineYWidth}
+                strokeWidth={yAxisLineWidth}
               />
             ))}
 
-            {/* X grid lines */}
-            {showXGrid && data.data.map((_, i) => (
+            {/* X grid lines (vertical for categories) */}
+            {effectiveShowXGrid && data.data.map((_, i) => (
               <line
                 key={`gx-${i}`}
                 x1={scaleX(i)}
@@ -512,7 +657,7 @@ const QColumnChart = ({
                 x2={scaleX(i)}
                 y2={svgHeight - padding}
                 stroke={gridLineXColor}
-                strokeWidth={gridLineXWidth}
+                strokeWidth={xAxisLineWidth}
               />
             ))}
 
@@ -522,14 +667,14 @@ const QColumnChart = ({
               y1={svgHeight - padding}
               x2={svgWidth - padding}
               y2={svgHeight - padding}
-              stroke="#000"
+              className="stroke-black"
             />
             <line
               x1={padding}
               y1={padding}
               x2={padding}
               y2={svgHeight - padding}
-              stroke="#000"
+              className="stroke-black"
             />
 
             {/* Bars */}
@@ -558,7 +703,7 @@ const QColumnChart = ({
                   />
 
                   {/* Tooltip */}
-                  {showTooltip && hoveredPoint?.x === p.x && (
+                  {effectiveShowTooltip && hoveredPoint?.x === p.x && (
                     <g>
                       <rect
                         x={xPos - 45}
@@ -594,56 +739,51 @@ const QColumnChart = ({
             })}
 
             {/* X labels */}
-            {showXlabel && data.data.map((p, i) => (
+            {effectiveShowXlabel && data.data.map((p, i) => (
               <text
                 key={`tx-${p.x}`}
                 x={scaleX(i)}
                 y={svgHeight - padding + 20}
                 textAnchor="middle"
+                className="text-xs text-center"
                 fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
-                fontSize="11"
               >
                 {p.x}
               </text>
             ))}
 
             {/* Y labels */}
-            {showYlabel && yTicks.map((y) => (
+            {effectiveShowYlabel && yTicks.map((y) => (
               <text
                 key={`ty-${y}`}
                 x={padding - 10}
                 y={scaleY(y) + 4}
                 textAnchor="end"
+                className="text-xs text-right"
                 fill={useGradientForText ? "url(#fgGrad)" : effectiveForegroundColor}
-                fontSize="11"
               >
                 {y}
               </text>
             ))}
           </svg>
 
-          {/* Legend */}          
-          {showTitle && (
-            <div className="flex items-center justify-center mt-4 gap-4">
-              <span className="text-xs" style={titleTextStyle}>{data.title}</span>
+          {/* Legend */}
+          {effectiveShowLegend && (
+            <div className="w-full flex flex-wrap justify-center gap-2 rounded-2xl shadow-2xl shadow-black px-4 py-4 mt-4" style={{ backgroundColor: legendBoxBackgroundColor }}>
+              {data.data.map((p) => {
+                const barColor = getColor(p.y);
+                return (
+                  <div key={p.x} className="flex items-center gap-2">
+                    <div
+                      className="w-3.5 h-3.5 rounded-sm opacity-70"
+                      style={{ backgroundColor: barColor }}
+                    />
+                    <span className="text-[12px] text-gray-700" style={titleTextStyle}>{p.x}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
-
-          <div className="flex justify-center gap-4 rounded-2xl shadow-2xl shadow-black px-4 py-4 mt-4" style={{ backgroundColor: legendBoxBackgroundColor }}>
-            {data.data.map((p) => {
-              const barColor = getColor(p.y);
-              return (
-                <div key={p.x} className="flex items-center gap-2">
-                  <div
-                    className="w-3.5 h-3.5 rounded-sm opacity-70"
-                    style={{ backgroundColor: barColor }}
-                  />
-                  <span style={titleTextStyle} className="text-[12px]">{p.x}</span>
-                </div>
-              );
-            })}
-          </div>
-
         </div>
       </div>
     </div>
@@ -652,35 +792,35 @@ const QColumnChart = ({
 
 // PropTypes for type-checking
 QColumnChart.propTypes = {
-    
-    data: PropTypes.shape({
+   
+  data: PropTypes.shape({
     title: PropTypes.string.isRequired,
     data: PropTypes.arrayOf(
       PropTypes.shape({
-        y: PropTypes.string.isRequired,
-        x: PropTypes.number.isRequired,
+        x: PropTypes.string.isRequired,
+        y: PropTypes.number.isRequired,
       })
     ).isRequired,
   }).isRequired,
-
-  width: PropTypes.number,
-  height: PropTypes.number,
+  
+  width: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  height: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   yMin: PropTypes.number,
   yMax: PropTypes.number,
   minWidth: PropTypes.string,
   maxWidth: PropTypes.string,
   minHeight: PropTypes.string,
   maxHeight: PropTypes.string,
-  showTitle: PropTypes.bool,
-  showTooltip: PropTypes.bool,
-  showXGrid: PropTypes.bool,
-  showYGrid: PropTypes.bool,
-  gridLineXWidth: PropTypes.string,
-  gridLineYWidth: PropTypes.string,
+  showLegend: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  showTooltip: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  xAxisGridLines: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  yAxisGridLines: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  xAxisLineWidth: PropTypes.string,
+  yAxisLineWidth: PropTypes.string,
   gridLineXColor: PropTypes.string,
   gridLineYColor: PropTypes.string,
-  showXlabel: PropTypes.bool,
-  showYlabel: PropTypes.bool,
+  showXlabel: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
+  showYlabel: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
   borderAll: PropTypes.number,
   borderTop: PropTypes.number,
   borderRight: PropTypes.number,
@@ -697,11 +837,7 @@ QColumnChart.propTypes = {
   borderRadiusTopRight: PropTypes.number,
   borderRadiusBottomRight: PropTypes.number,
   borderRadiusBottomLeft: PropTypes.number,
-  boxShadowColor: PropTypes.string,
-  boxShadowOffsetX: PropTypes.number,
-  boxShadowOffsetY: PropTypes.number,
-  boxShadowBlurRadius: PropTypes.number,
-  boxShadowSpreadRadius: PropTypes.number,
+  boxShadow: PropTypes.string,
   paddingAll: PropTypes.number,
   paddingTop: PropTypes.number,
   paddingRight: PropTypes.number,
@@ -712,33 +848,27 @@ QColumnChart.propTypes = {
   marginRight: PropTypes.number,
   marginBottom: PropTypes.number,
   marginLeft: PropTypes.number,
-  backgroundColor: PropTypes.string,
-  useLinearGradient: PropTypes.bool,
-  gradientColors: PropTypes.arrayOf(PropTypes.string),
-  gradientAngle: PropTypes.number,
-  gradientStops: PropTypes.arrayOf(PropTypes.number),
-  useRadialGradient: PropTypes.bool,
-  radialGradientColors: PropTypes.arrayOf(PropTypes.string),
-  radialGradientStops: PropTypes.arrayOf(PropTypes.number),
-  backgroundImageUrl: PropTypes.string,
+  bgColor: PropTypes.string,
+  bgUrl: PropTypes.string,
   backgroundImageFit: PropTypes.string,
-  backgroundImageAlt: PropTypes.string,
-  backgroundImageTitle: PropTypes.string,
+  seoAlt: PropTypes.string,
+  seoTitle: PropTypes.string,
   backgroundImageRepeat: PropTypes.string,
-  useLinearGradientForeground: PropTypes.bool,
+  useLinearGradientForeground: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
   gradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
   gradientAngleForeground: PropTypes.number,
   gradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
-  useRadialGradientForeground: PropTypes.bool,
+  useRadialGradientForeground: PropTypes.oneOfType([PropTypes.bool, PropTypes.oneOf(['true', 'false'])]),
   radialGradientColorsForeground: PropTypes.arrayOf(PropTypes.string),
   radialGradientStopsForeground: PropTypes.arrayOf(PropTypes.number),
-  foregroundColor: PropTypes.string,
-  alignment: PropTypes.string,
+  foreground: PropTypes.string,
+  childAlign: PropTypes.string,
+  legendBoxBackgroundColor: PropTypes.string,
+  tailwindClasses: PropTypes.string,
   barSpacing: PropTypes.number,
   barRadius: PropTypes.number,
   animationDelay: PropTypes.number,
   animationDuration: PropTypes.number,
-  legendBoxBackgroundColor: PropTypes.string,
 }
 
 export default QColumnChart;
